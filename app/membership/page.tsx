@@ -9,7 +9,8 @@ import { createClient } from '@/lib/supabase/client';
 interface TierItem {
   membid: number;
   name: string;
-  price: string;
+  priceDisplay: string;
+  amount: number;
   period: string;
   color: string;
   discountrate: number;
@@ -21,7 +22,8 @@ const fallbackTiers: TierItem[] = [
   {
     membid: 10001,
     name: 'Standard',
-    price: 'HK$1,200',
+    priceDisplay: 'HK$1,200',
+    amount: 1200,
     period: '/ year',
     color: '#2EC4B6',
     discountrate: 0.10,
@@ -37,7 +39,8 @@ const fallbackTiers: TierItem[] = [
   {
     membid: 10002,
     name: 'Professional',
-    price: 'HK$3,800',
+    priceDisplay: 'HK$3,800',
+    amount: 3800,
     period: '/ year',
     color: '#7B1A2D',
     discountrate: 0.20,
@@ -55,7 +58,8 @@ const fallbackTiers: TierItem[] = [
   {
     membid: 10003,
     name: 'Premium',
-    price: 'HK$8,800',
+    priceDisplay: 'HK$8,800',
+    amount: 8800,
     period: '/ year',
     color: '#E5A52E',
     discountrate: 0.30,
@@ -85,47 +89,64 @@ export default function MembershipPage() {
   const [tiersList, setTiersList] = useState<TierItem[]>(fallbackTiers);
   const [currentMembid, setCurrentMembid] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [joiningId, setJoiningId] = useState<number | null>(null);
+  const [selectedTier, setSelectedTier] = useState<TierItem | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [cardNumber, setCardNumber] = useState('4242 •••• •••• 4242');
+  const [cardExpiry, setCardExpiry] = useState('12/28');
+  const [cardCvc, setCardCvc] = useState('123');
+  const [cardName, setCardName] = useState('Member Account');
 
   useEffect(() => {
     async function loadTiersAndUser() {
       try {
         const supabase = createClient();
         
-        // Load current logged-in user membership
+        // Fetch current user and active membership tier
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const { data: profile } = await supabase
             .from('users')
-            .select('membid')
+            .select('membid, first_name, last_name')
             .eq('id', user.id)
             .single();
-          if (profile?.membid) {
-            setCurrentMembid(profile.membid);
+
+          if (profile) {
+            if (profile.membid) setCurrentMembid(profile.membid);
+            if (profile.first_name || profile.last_name) {
+              setCardName(`${profile.first_name || ''} ${profile.last_name || ''}`.trim());
+            }
           }
         }
 
-        // Load membership tiers from Supabase
+        // Fetch database membership tiers
         const { data: dbTiers, error } = await supabase
           .from('membershiptiers')
           .select('*');
 
         if (!error && dbTiers && dbTiers.length > 0) {
-          const mapped: TierItem[] = dbTiers.map((t: Record<string, unknown>, idx: number) => ({
-            membid: t.membid as number,
-            name: (t.membname as string) || (t.tiers as string) || 'Member Tier',
-            price: t.discountrate ? `Discount ${(Number(t.discountrate) * 100).toFixed(0)}%` : 'Standard Price',
-            period: '',
-            color: idx === 1 ? '#7B1A2D' : idx === 2 ? '#E5A52E' : '#2EC4B6',
-            discountrate: Number(t.discountrate) || 0,
-            features: [
-              `Member Tier: ${t.tiers || t.membname}`,
-              `Discount Rate: ${((Number(t.discountrate) || 0) * 100).toFixed(0)}% off courses`,
-              'Access to community webinars',
-              'Digital membership certificate'
-            ],
-            highlight: idx === 1,
-          }));
+          const mapped: TierItem[] = dbTiers.map((t: Record<string, unknown>, idx: number) => {
+            const discount = Number(t.discountrate) || 0;
+            const priceVal = idx === 0 ? 1200 : idx === 1 ? 3800 : 8800;
+            return {
+              membid: t.membid as number,
+              name: (t.membname as string) || (t.tiers as string) || `Tier ${t.membid}`,
+              priceDisplay: `HK$${priceVal.toLocaleString()}`,
+              amount: priceVal,
+              period: '/ year',
+              color: idx === 1 ? '#7B1A2D' : idx === 2 ? '#E5A52E' : '#2EC4B6',
+              discountrate: discount,
+              features: [
+                `Official ${t.tiers || t.membname} Membership`,
+                `Automatic ${(discount * 100).toFixed(0)}% discount on course enrollments`,
+                'Access to members-only portal',
+                'CPD certificate eligibility',
+                'Priority event invitations'
+              ],
+              highlight: idx === 1,
+            };
+          });
           setTiersList(mapped);
         }
       } catch (err) {
@@ -138,32 +159,52 @@ export default function MembershipPage() {
     loadTiersAndUser();
   }, []);
 
-  const handleJoinTier = async (membid: number) => {
+  const handleOpenPaymentModal = async (tier: TierItem) => {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      window.location.href = '/login?redirect=/membership';
+      return;
+    }
+
+    setSelectedTier(tier);
+    setPaymentSuccess(false);
+    setIsModalOpen(true);
+  };
+
+  const handleProcessPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTier) return;
+
+    setIsProcessing(true);
+
     try {
-      setJoiningId(membid);
+      // Simulate real bank processing delay
+      await new Promise((res) => setTimeout(res, 1500));
+
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
 
-      if (!user) {
-        window.location.href = '/login?redirect=/membership';
-        return;
-      }
+      if (!user) throw new Error('Not authenticated');
 
+      // Update users table in Supabase
       const { error } = await supabase
         .from('users')
-        .update({ membid })
+        .update({ membid: selectedTier.membid })
         .eq('id', user.id);
 
       if (error) {
-        alert('Could not update membership: ' + error.message);
-      } else {
-        setCurrentMembid(membid);
-        alert('Membership tier updated successfully!');
+        throw error;
       }
-    } catch {
-      alert('An unexpected error occurred.');
+
+      setCurrentMembid(selectedTier.membid);
+      setPaymentSuccess(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      alert('Payment execution failed: ' + msg);
     } finally {
-      setJoiningId(null);
+      setIsProcessing(false);
     }
   };
 
@@ -224,7 +265,7 @@ export default function MembershipPage() {
                       <div style={{ padding: 36 }}>
                         <h3 style={{ fontSize: 22, fontWeight: 700, color: tier.highlight ? '#fff' : '#1A1A2A' }}>{tier.name}</h3>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 16, marginBottom: 32 }}>
-                          <span style={{ fontSize: 36, fontWeight: 700, color: tier.highlight ? '#E5A52E' : tier.color }}>{tier.price}</span>
+                          <span style={{ fontSize: 36, fontWeight: 700, color: tier.highlight ? '#E5A52E' : tier.color }}>{tier.priceDisplay}</span>
                           <span style={{ fontSize: 14, color: tier.highlight ? 'rgba(255,255,255,0.6)' : '#999' }}>{tier.period}</span>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -238,17 +279,17 @@ export default function MembershipPage() {
                           ))}
                         </div>
                         <button
-                          onClick={() => handleJoinTier(tier.membid)}
-                          disabled={isCurrent || joiningId === tier.membid}
+                          onClick={() => handleOpenPaymentModal(tier)}
+                          disabled={isCurrent}
                           style={{
                             width: '100%', border: 'none', cursor: isCurrent ? 'default' : 'pointer',
                             textAlign: 'center', marginTop: 32, padding: '14px 24px', borderRadius: 30,
                             fontSize: 15, fontWeight: 600,
                             background: isCurrent ? '#2EC4B6' : tier.highlight ? '#E5A52E' : tier.color,
-                            color: '#fff', opacity: joiningId === tier.membid ? 0.7 : 1, transition: 'all 0.3s',
+                            color: '#fff', transition: 'all 0.3s',
                           }}
                         >
-                          {isCurrent ? 'Current Plan' : joiningId === tier.membid ? 'Updating...' : 'Select Plan'}
+                          {isCurrent ? 'Active Plan' : 'Select & Join Plan'}
                         </button>
                       </div>
                     </div>
@@ -259,6 +300,179 @@ export default function MembershipPage() {
           )}
         </div>
       </section>
+
+      {/* MOCK PAYMENT MODAL */}
+      {isModalOpen && selectedTier && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 24, width: '100%', maxWidth: 480,
+            padding: 36, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            position: 'relative', animation: 'fadeIn 0.2s ease-out',
+          }}>
+            <button
+              onClick={() => setIsModalOpen(false)}
+              style={{
+                position: 'absolute', top: 20, right: 20, background: 'none', border: 'none',
+                fontSize: 22, color: '#999', cursor: 'pointer',
+              }}
+            >
+              ✕
+            </button>
+
+            {paymentSuccess ? (
+              <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                <div style={{
+                  width: 72, height: 72, borderRadius: '50%', background: 'rgba(46,196,182,0.15)',
+                  color: '#2EC4B6', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 36, margin: '0 auto 20px',
+                }}>
+                  ✓
+                </div>
+                <h3 style={{ fontSize: 24, fontWeight: 700, color: '#1A1A2A', marginBottom: 10 }}>
+                  Payment Successful!
+                </h3>
+                <p style={{ fontSize: 15, color: '#666', lineHeight: 1.6, marginBottom: 24 }}>
+                  Congratulations! You are now officially upgraded to the <strong>{selectedTier.name} Membership Tier</strong>.
+                </p>
+
+                <div style={{
+                  background: '#F8F8FA', borderRadius: 12, padding: '16px 20px', textAlign: 'left',
+                  fontSize: 13, color: '#444', marginBottom: 28, border: '1px solid #EEE'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span>Membership ID:</span>
+                    <strong>#{selectedTier.membid}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span>Status:</span>
+                    <strong style={{ color: '#2EC4B6' }}>Saved to Supabase `users.membid`</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Course Discount:</span>
+                    <strong>{(selectedTier.discountrate * 100).toFixed(0)}% Off</strong>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  style={{
+                    width: '100%', padding: '14px', borderRadius: 30, background: '#7B1A2D',
+                    color: '#fff', fontSize: 15, fontWeight: 600, border: 'none', cursor: 'pointer',
+                  }}
+                >
+                  Return to Dashboard
+                </button>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                  <div style={{
+                    width: 40, height: 40, borderRadius: 10, background: 'rgba(123,26,45,0.1)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7B1A2D',
+                    fontWeight: 700, fontSize: 18,
+                  }}>
+                    💳
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: 20, fontWeight: 700, color: '#1A1A2A' }}>Mock Checkout</h3>
+                    <p style={{ fontSize: 13, color: '#666' }}>Testing Supabase `membershiptiers` Integration</p>
+                  </div>
+                </div>
+
+                <div style={{
+                  background: '#F8F8FA', borderRadius: 16, padding: '16px 20px', marginBottom: 24,
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #EEE',
+                }}>
+                  <div>
+                    <div style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>SELECTED TIER</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#1A1A2A', marginTop: 2 }}>
+                      {selectedTier.name} Plan
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: '#7B1A2D' }}>
+                      {selectedTier.priceDisplay}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#2EC4B6', fontWeight: 600 }}>
+                      {(selectedTier.discountrate * 100).toFixed(0)}% Course Discount
+                    </div>
+                  </div>
+                </div>
+
+                <form onSubmit={handleProcessPayment} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Cardholder Name</label>
+                    <input
+                      type="text" required value={cardName} onChange={(e) => setCardName(e.target.value)}
+                      style={{
+                        width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 10,
+                        border: '1.5px solid #DDD', outline: 'none', background: '#fff',
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Card Number (Mock Test Card)</label>
+                    <input
+                      type="text" required value={cardNumber} onChange={(e) => setCardNumber(e.target.value)}
+                      style={{
+                        width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 10,
+                        border: '1.5px solid #DDD', outline: 'none', background: '#fff',
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Expiry Date</label>
+                      <input
+                        type="text" required value={cardExpiry} onChange={(e) => setCardExpiry(e.target.value)}
+                        style={{
+                          width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 10,
+                          border: '1.5px solid #DDD', outline: 'none', background: '#fff',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>CVC</label>
+                      <input
+                        type="text" required value={cardCvc} onChange={(e) => setCardCvc(e.target.value)}
+                        style={{
+                          width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 10,
+                          border: '1.5px solid #DDD', outline: 'none', background: '#fff',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{
+                    fontSize: 12, color: '#888', background: 'rgba(229,165,46,0.1)', padding: '10px 14px',
+                    borderRadius: 8, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8,
+                  }}>
+                    <span>💡</span>
+                    <span>This is a <strong>mock payment sandbox</strong>. No real credit card will be charged.</span>
+                  </div>
+
+                  <button
+                    type="submit" disabled={isProcessing}
+                    style={{
+                      width: '100%', padding: '15px', borderRadius: 30, fontSize: 15, fontWeight: 600,
+                      background: isProcessing ? '#999' : '#7B1A2D', color: '#fff', border: 'none',
+                      cursor: isProcessing ? 'not-allowed' : 'pointer', marginTop: 12, transition: 'all 0.2s',
+                    }}
+                  >
+                    {isProcessing ? 'Processing Payment & Saving to Table...' : `Pay ${selectedTier.priceDisplay} & Activate Plan`}
+                  </button>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <section id="join" style={{ padding: '100px 0', background: '#F8F8FA' }}>
         <div className="container">

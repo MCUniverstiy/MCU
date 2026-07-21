@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import type { User } from '@supabase/supabase-js';
+import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import Logo from './Logo';
 
 const navItems = [
@@ -29,6 +29,7 @@ export default function NavBar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [userTier, setUserTier] = useState<string>('Member');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -41,17 +42,35 @@ export default function NavBar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Auth state listener
+  // Auth state listener & membership tier lookup
   useEffect(() => {
-    const getUser = async () => {
+    const getUserAndProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+
+      if (user) {
+        try {
+          const { data: profile } = await supabase
+            .from('users')
+            .select('membid, membershiptiers(membname, tiers)')
+            .eq('id', user.id)
+            .single();
+
+          if (profile?.membershiptiers) {
+            const tierObj = profile.membershiptiers as unknown as { membname?: string; tiers?: string };
+            const name = tierObj.membname || tierObj.tiers;
+            if (name) setUserTier(`${name} Member`);
+          }
+        } catch {
+          // Default fallback
+        }
+      }
     };
 
-    getUser();
+    getUserAndProfile();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event: AuthChangeEvent, session: Session | null) => {
         setUser(session?.user ?? null);
       }
     );
@@ -74,6 +93,7 @@ export default function NavBar() {
     if (!user) return '';
     return (
       user.user_metadata?.full_name ||
+      user.user_metadata?.first_name ||
       user.user_metadata?.name ||
       user.email?.split('@')[0] ||
       'User'
@@ -155,19 +175,7 @@ export default function NavBar() {
                 className="nav-link"
               >
                 {item.label}
-                {item.children && (
-                  <span style={{ marginLeft: 4, fontSize: 11 }}></span>
-                )}
               </Link>
-              {item.children && (
-                <div className="nav-dropdown">
-                  {item.children.map((child) => (
-                    <Link key={child.label} href={child.href}>
-                      {child.label}
-                    </Link>
-                  ))}
-                </div>
-              )}
             </div>
           ))}
         </div>
@@ -250,12 +258,13 @@ export default function NavBar() {
                   <div
                     style={{
                       fontSize: 11,
-                      color: '#888',
+                      color: '#7B1A2D',
+                      fontWeight: 600,
                       lineHeight: 1,
-                      marginTop: 1,
+                      marginTop: 3,
                     }}
                   >
-                    Member
+                    {userTier}
                   </div>
                 </div>
 
@@ -368,84 +377,7 @@ export default function NavBar() {
             Shop
           </Link>
         </div>
-
-        {/* Mobile Hamburger */}
-        <button
-          onClick={() => setMobileOpen(!mobileOpen)}
-          style={{
-            display: 'none',
-            background: 'none',
-            border: 'none',
-            padding: 8,
-            cursor: 'pointer',
-          }}
-          aria-label="Toggle menu"
-        >
-          <div style={{ width: 24, height: 2, background: '#333', margin: '5px 0' }} />
-          <div style={{ width: 24, height: 2, background: '#333', margin: '5px 0' }} />
-          <div style={{ width: 24, height: 2, background: '#333', margin: '5px 0' }} />
-        </button>
       </div>
-
-      {/* Mobile Menu */}
-      {mobileOpen && (
-        <div
-          style={{
-            background: '#fff',
-            borderTop: '1px solid #eee',
-            padding: '20px 24px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 4,
-          }}
-        >
-          {navItems.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              onClick={() => setMobileOpen(false)}
-              style={{
-                padding: '12px 0',
-                fontSize: 15,
-                fontWeight: 500,
-                color: isActive(item.href) ? '#7B1A2D' : '#333',
-                textDecoration: 'none',
-              }}
-            >
-              {item.label}
-            </Link>
-          ))}
-
-          {!user ? (
-            <>
-              <Link href="/login" onClick={() => setMobileOpen(false)}>
-                Log in
-              </Link>
-              <Link href="/register" onClick={() => setMobileOpen(false)}>
-                Register
-              </Link>
-            </>
-          ) : (
-            <button
-              onClick={handleLogout}
-              style={{
-                textAlign: 'left',
-                padding: '12px 0',
-                color: '#c53030',
-                background: 'none',
-                border: 'none',
-                fontSize: 15,
-              }}
-            >
-              Log out
-            </button>
-          )}
-
-          <Link href="/shop" onClick={() => setMobileOpen(false)}>
-            Shop
-          </Link>
-        </div>
-      )}
     </nav>
   );
 }
