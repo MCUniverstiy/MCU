@@ -9,7 +9,26 @@ export async function GET(request: Request) {
   if (code) {
     const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
+    
     if (!error) {
+      // Ensure user profile is synced to public.users table as a fallback
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (user) {
+        try {
+          await supabase.from('users').upsert({
+            id: user.id,
+            email: user.email!,
+            first_name: user.user_metadata?.first_name || '',
+            last_name: user.user_metadata?.last_name || '',
+            phone_number: user.user_metadata?.phone || '',
+            area_of_interest: user.user_metadata?.area_of_interest || '',
+          }, { onConflict: 'id' })
+        } catch (err) {
+          console.error('Error syncing user metadata in auth callback:', err)
+        }
+      }
+
       return NextResponse.redirect(`${origin}${next}`)
     }
   }

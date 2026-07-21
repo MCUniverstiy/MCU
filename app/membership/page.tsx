@@ -1,15 +1,30 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import SiteLayout from '@/components/SiteLayout';
 import PageHero from '@/components/PageHero';
 import ScrollReveal from '@/components/ScrollReveal';
+import { createClient } from '@/lib/supabase/client';
 
-const tiers = [
+interface TierItem {
+  membid: number;
+  name: string;
+  price: string;
+  period: string;
+  color: string;
+  discountrate: number;
+  features: string[];
+  highlight: boolean;
+}
+
+const fallbackTiers: TierItem[] = [
   {
+    membid: 10001,
     name: 'Standard',
     price: 'HK$1,200',
     period: '/ year',
     color: '#2EC4B6',
+    discountrate: 0.10,
     features: [
       'Access to monthly webinars',
       'MCU Institute newsletter',
@@ -20,10 +35,12 @@ const tiers = [
     highlight: false,
   },
   {
+    membid: 10002,
     name: 'Professional',
     price: 'HK$3,800',
     period: '/ year',
     color: '#7B1A2D',
+    discountrate: 0.20,
     features: [
       'All Standard benefits',
       'Quarterly in-person networking events',
@@ -36,10 +53,12 @@ const tiers = [
     highlight: true,
   },
   {
+    membid: 10003,
     name: 'Premium',
     price: 'HK$8,800',
     period: '/ year',
     color: '#E5A52E',
+    discountrate: 0.30,
     features: [
       'All Professional benefits',
       'One complimentary short course per year',
@@ -48,7 +67,6 @@ const tiers = [
       'Personal academic advisor',
       'Board member voting rights',
       'Featured in member spotlight',
-      'Co-branding on selected events',
     ],
     highlight: false,
   },
@@ -64,6 +82,91 @@ const clubBenefits = [
 ];
 
 export default function MembershipPage() {
+  const [tiersList, setTiersList] = useState<TierItem[]>(fallbackTiers);
+  const [currentMembid, setCurrentMembid] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [joiningId, setJoiningId] = useState<number | null>(null);
+
+  useEffect(() => {
+    async function loadTiersAndUser() {
+      try {
+        const supabase = createClient();
+        
+        // Load current logged-in user membership
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('users')
+            .select('membid')
+            .eq('id', user.id)
+            .single();
+          if (profile?.membid) {
+            setCurrentMembid(profile.membid);
+          }
+        }
+
+        // Load membership tiers from Supabase
+        const { data: dbTiers, error } = await supabase
+          .from('membershiptiers')
+          .select('*');
+
+        if (!error && dbTiers && dbTiers.length > 0) {
+          const mapped: TierItem[] = dbTiers.map((t: Record<string, unknown>, idx: number) => ({
+            membid: t.membid as number,
+            name: (t.membname as string) || (t.tiers as string) || 'Member Tier',
+            price: t.discountrate ? `Discount ${(Number(t.discountrate) * 100).toFixed(0)}%` : 'Standard Price',
+            period: '',
+            color: idx === 1 ? '#7B1A2D' : idx === 2 ? '#E5A52E' : '#2EC4B6',
+            discountrate: Number(t.discountrate) || 0,
+            features: [
+              `Member Tier: ${t.tiers || t.membname}`,
+              `Discount Rate: ${((Number(t.discountrate) || 0) * 100).toFixed(0)}% off courses`,
+              'Access to community webinars',
+              'Digital membership certificate'
+            ],
+            highlight: idx === 1,
+          }));
+          setTiersList(mapped);
+        }
+      } catch (err) {
+        console.warn('Using default fallback tiers:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadTiersAndUser();
+  }, []);
+
+  const handleJoinTier = async (membid: number) => {
+    try {
+      setJoiningId(membid);
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        window.location.href = '/login?redirect=/membership';
+        return;
+      }
+
+      const { error } = await supabase
+        .from('users')
+        .update({ membid })
+        .eq('id', user.id);
+
+      if (error) {
+        alert('Could not update membership: ' + error.message);
+      } else {
+        setCurrentMembid(membid);
+        alert('Membership tier updated successfully!');
+      }
+    } catch {
+      alert('An unexpected error occurred.');
+    } finally {
+      setJoiningId(null);
+    }
+  };
+
   return (
     <SiteLayout>
       <div style={{ paddingTop: 68 }}>
@@ -91,58 +194,69 @@ export default function MembershipPage() {
             </div>
           </ScrollReveal>
 
-          <div className="grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 32, alignItems: 'start' }}>
-            {tiers.map((tier, i) => (
-              <ScrollReveal key={i} delay={i * 0.1} threshold={0.1}>
-                <div style={{
-                  borderRadius: 20, background: tier.highlight ? '#7B1A2D' : '#fff',
-                  border: `2px solid ${tier.highlight ? '#7B1A2D' : 'rgba(0,0,0,0.08)'}`,
-                  overflow: 'hidden', boxShadow: tier.highlight ? '0 20px 60px rgba(123,26,45,0.25)' : '0 2px 20px rgba(0,0,0,0.06)',
-                  position: 'relative', transition: 'all 0.3s',
-                }}
-                  onMouseEnter={(e) => { if (!tier.highlight) { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 16px 40px rgba(0,0,0,0.12)'; } }}
-                  onMouseLeave={(e) => { if (!tier.highlight) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 20px rgba(0,0,0,0.06)'; } }}
-                >
-                  {tier.highlight && (
-                    <div style={{ background: '#E5A52E', textAlign: 'center', padding: '8px', fontSize: 12, fontWeight: 700, color: '#fff', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                      Most Popular
-                    </div>
-                  )}
-                  <div style={{ height: 4, background: tier.color }} />
-                  <div style={{ padding: 36 }}>
-                    <h3 style={{ fontSize: 22, fontWeight: 700, color: tier.highlight ? '#fff' : '#1A1A2A' }}>{tier.name}</h3>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 16, marginBottom: 32 }}>
-                      <span style={{ fontSize: 36, fontWeight: 700, color: tier.highlight ? '#E5A52E' : tier.color }}>{tier.price}</span>
-                      <span style={{ fontSize: 14, color: tier.highlight ? 'rgba(255,255,255,0.6)' : '#999' }}>{tier.period}</span>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      {tier.features.map((f, j) => (
-                        <div key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                          <div style={{ width: 18, height: 18, borderRadius: '50%', background: tier.color + (tier.highlight ? 'ff' : '20'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
-                            <span style={{ fontSize: 10, color: tier.highlight ? '#fff' : tier.color, fontWeight: 700 }}>✓</span>
-                          </div>
-                          <span style={{ fontSize: 14, color: tier.highlight ? 'rgba(255,255,255,0.85)' : '#555', lineHeight: 1.5 }}>{f}</span>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '60px 0', color: '#888' }}>
+              Loading membership tiers from Supabase...
+            </div>
+          ) : (
+            <div className="grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 32, alignItems: 'start' }}>
+              {tiersList.map((tier, i) => {
+                const isCurrent = currentMembid === tier.membid;
+                return (
+                  <ScrollReveal key={tier.membid || i} delay={i * 0.1} threshold={0.1}>
+                    <div style={{
+                      borderRadius: 20, background: tier.highlight ? '#7B1A2D' : '#fff',
+                      border: `2px solid ${isCurrent ? '#2EC4B6' : tier.highlight ? '#7B1A2D' : 'rgba(0,0,0,0.08)'}`,
+                      overflow: 'hidden', boxShadow: tier.highlight ? '0 20px 60px rgba(123,26,45,0.25)' : '0 2px 20px rgba(0,0,0,0.06)',
+                      position: 'relative', transition: 'all 0.3s',
+                    }}>
+                      {isCurrent && (
+                        <div style={{ background: '#2EC4B6', textAlign: 'center', padding: '8px', fontSize: 12, fontWeight: 700, color: '#fff', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                          ✓ Your Active Plan
                         </div>
-                      ))}
+                      )}
+                      {!isCurrent && tier.highlight && (
+                        <div style={{ background: '#E5A52E', textAlign: 'center', padding: '8px', fontSize: 12, fontWeight: 700, color: '#fff', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                          Most Popular
+                        </div>
+                      )}
+                      <div style={{ height: 4, background: tier.color }} />
+                      <div style={{ padding: 36 }}>
+                        <h3 style={{ fontSize: 22, fontWeight: 700, color: tier.highlight ? '#fff' : '#1A1A2A' }}>{tier.name}</h3>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 16, marginBottom: 32 }}>
+                          <span style={{ fontSize: 36, fontWeight: 700, color: tier.highlight ? '#E5A52E' : tier.color }}>{tier.price}</span>
+                          <span style={{ fontSize: 14, color: tier.highlight ? 'rgba(255,255,255,0.6)' : '#999' }}>{tier.period}</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          {tier.features.map((f, j) => (
+                            <div key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                              <div style={{ width: 18, height: 18, borderRadius: '50%', background: tier.color + (tier.highlight ? 'ff' : '20'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                                <span style={{ fontSize: 10, color: tier.highlight ? '#fff' : tier.color, fontWeight: 700 }}>✓</span>
+                              </div>
+                              <span style={{ fontSize: 14, color: tier.highlight ? 'rgba(255,255,255,0.85)' : '#555', lineHeight: 1.5 }}>{f}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          onClick={() => handleJoinTier(tier.membid)}
+                          disabled={isCurrent || joiningId === tier.membid}
+                          style={{
+                            width: '100%', border: 'none', cursor: isCurrent ? 'default' : 'pointer',
+                            textAlign: 'center', marginTop: 32, padding: '14px 24px', borderRadius: 30,
+                            fontSize: 15, fontWeight: 600,
+                            background: isCurrent ? '#2EC4B6' : tier.highlight ? '#E5A52E' : tier.color,
+                            color: '#fff', opacity: joiningId === tier.membid ? 0.7 : 1, transition: 'all 0.3s',
+                          }}
+                        >
+                          {isCurrent ? 'Current Plan' : joiningId === tier.membid ? 'Updating...' : 'Select Plan'}
+                        </button>
+                      </div>
                     </div>
-                    <a
-                      href="/register"
-                      style={{
-                        display: 'block', textAlign: 'center', marginTop: 32,
-                        padding: '14px 24px', borderRadius: 30, fontSize: 15, fontWeight: 600,
-                        background: tier.highlight ? '#E5A52E' : tier.color,
-                        color: '#fff', transition: 'all 0.3s',
-                      }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLAnchorElement).style.boxShadow = '0 8px 24px rgba(0,0,0,0.2)'; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLAnchorElement).style.boxShadow = 'none'; }}
-                    >
-                      Join Now
-                    </a>
-                  </div>
-                </div>
-              </ScrollReveal>
-            ))}
-          </div>
+                  </ScrollReveal>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
 
