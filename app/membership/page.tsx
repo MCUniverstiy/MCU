@@ -190,16 +190,21 @@ export default function MembershipPage() {
 
       if (!user) throw new Error('Not authenticated');
 
-      // Update users table in Supabase
-      const { error } = await supabase
+      // Update users table in Supabase.
+      // The DB trigger assigns a memberid automatically on first join,
+      // so we select it back to display the new membership number.
+      const { data: updated, error } = await supabase
         .from('users')
         .update({ tierid: selectedTier.tierid })
-        .eq('id', user.id);
+        .eq('id', user.id)
+        .select('memberid')
+        .single();
 
       if (error) {
         throw error;
       }
 
+      if (updated?.memberid) setMemberId(updated.memberid);
       setCurrentTierid(selectedTier.tierid);
       setPaymentSuccess(true);
     } catch (err: unknown) {
