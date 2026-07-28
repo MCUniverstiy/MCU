@@ -52,7 +52,7 @@ export default function NavBar() {
         try {
           const { data: profile } = await supabase
             .from('users')
-            .select('membid, membershiptiers(membname, tiers)')
+            .select('tierid, membershiptiers(membname, tiers)')
             .eq('id', user.id)
             .single();
 

@@ -7,7 +7,7 @@ import ScrollReveal from '@/components/ScrollReveal';
 import { createClient } from '@/lib/supabase/client';
 
 interface TierItem {
-  membid: number;
+  tierid: number;
   name: string;
   priceDisplay: string;
   amount: number;
@@ -20,7 +20,7 @@ interface TierItem {
 
 const fallbackTiers: TierItem[] = [
   {
-    membid: 10001,
+    tierid: 1,
     name: 'Standard',
     priceDisplay: 'HK$1,200',
     amount: 1200,
@@ -37,7 +37,7 @@ const fallbackTiers: TierItem[] = [
     highlight: false,
   },
   {
-    membid: 10002,
+    tierid: 2,
     name: 'Professional',
     priceDisplay: 'HK$3,800',
     amount: 3800,
@@ -56,7 +56,7 @@ const fallbackTiers: TierItem[] = [
     highlight: true,
   },
   {
-    membid: 10003,
+    tierid: 3,
     name: 'Premium',
     priceDisplay: 'HK$8,800',
     amount: 8800,
@@ -87,7 +87,8 @@ const clubBenefits = [
 
 export default function MembershipPage() {
   const [tiersList, setTiersList] = useState<TierItem[]>(fallbackTiers);
-  const [currentMembid, setCurrentMembid] = useState<number | null>(null);
+  const [currentTierid, setCurrentTierid] = useState<number | null>(null);
+  const [memberId, setMemberId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedTier, setSelectedTier] = useState<TierItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -108,12 +109,13 @@ export default function MembershipPage() {
         if (user) {
           const { data: profile } = await supabase
             .from('users')
-            .select('membid, first_name, last_name')
+            .select('tierid, memberid, first_name, last_name')
             .eq('id', user.id)
             .single();
 
           if (profile) {
-            if (profile.membid) setCurrentMembid(profile.membid);
+            if (profile.tierid) setCurrentTierid(profile.tierid);
+            if (profile.memberid) setMemberId(profile.memberid);
             if (profile.first_name || profile.last_name) {
               setCardName(`${profile.first_name || ''} ${profile.last_name || ''}`.trim());
             }
@@ -130,8 +132,8 @@ export default function MembershipPage() {
             const discount = Number(t.discountrate) || 0;
             const priceVal = idx === 0 ? 1200 : idx === 1 ? 3800 : 8800;
             return {
-              membid: t.membid as number,
-              name: (t.membname as string) || (t.tiers as string) || `Tier ${t.membid}`,
+              tierid: t.tierid as number,
+              name: (t.membname as string) || (t.tiers as string) || `Tier ${t.tierid}`,
               priceDisplay: `HK$${priceVal.toLocaleString()}`,
               amount: priceVal,
               period: '/ year',
@@ -188,17 +190,22 @@ export default function MembershipPage() {
 
       if (!user) throw new Error('Not authenticated');
 
-      // Update users table in Supabase
-      const { error } = await supabase
+      // Update users table in Supabase.
+      // The DB trigger assigns a memberid automatically on first join,
+      // so we select it back to display the new membership number.
+      const { data: updated, error } = await supabase
         .from('users')
-        .update({ membid: selectedTier.membid })
-        .eq('id', user.id);
+        .update({ tierid: selectedTier.tierid })
+        .eq('id', user.id)
+        .select('memberid')
+        .single();
 
       if (error) {
         throw error;
       }
 
-      setCurrentMembid(selectedTier.membid);
+      if (updated?.memberid) setMemberId(updated.memberid);
+      setCurrentTierid(selectedTier.tierid);
       setPaymentSuccess(true);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -242,9 +249,9 @@ export default function MembershipPage() {
           ) : (
             <div className="grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 32, alignItems: 'start' }}>
               {tiersList.map((tier, i) => {
-                const isCurrent = currentMembid === tier.membid;
+                const isCurrent = currentTierid === tier.tierid;
                 return (
-                  <ScrollReveal key={tier.membid || i} delay={i * 0.1} threshold={0.1}>
+                  <ScrollReveal key={tier.tierid || i} delay={i * 0.1} threshold={0.1}>
                     <div style={{
                       borderRadius: 20, background: tier.highlight ? '#7B1A2D' : '#fff',
                       border: `2px solid ${isCurrent ? '#2EC4B6' : tier.highlight ? '#7B1A2D' : 'rgba(0,0,0,0.08)'}`,
@@ -344,12 +351,16 @@ export default function MembershipPage() {
                   fontSize: 13, color: '#444', marginBottom: 28, border: '1px solid #EEE'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span>Membership ID:</span>
-                    <strong>#{selectedTier.membid}</strong>
+                    <span>Member ID:</span>
+                    <strong>#{memberId ?? '—'}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span>Tier:</span>
+                    <strong>{selectedTier.name} (Tier {selectedTier.tierid})</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                     <span>Status:</span>
-                    <strong style={{ color: '#2EC4B6' }}>Saved to Supabase `users.membid`</strong>
+                    <strong style={{ color: '#2EC4B6' }}>Saved to Supabase `users.tierid`</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span>Course Discount:</span>
