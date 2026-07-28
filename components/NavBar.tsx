@@ -30,6 +30,7 @@ export default function NavBar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [userTier, setUserTier] = useState<string>('Member');
+  const [isAdmin, setIsAdmin] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -52,7 +53,7 @@ export default function NavBar() {
         try {
           const { data: profile } = await supabase
             .from('users')
-            .select('tierid, membershiptiers(membname, tiers)')
+            .select('tierid, is_admin, membershiptiers(membname, tiers)')
             .eq('id', user.id)
             .single();
 
@@ -61,6 +62,7 @@ export default function NavBar() {
             const name = tierObj.membname || tierObj.tiers;
             if (name) setUserTier(`${name} Member`);
           }
+          setIsAdmin(Boolean(profile?.is_admin));
         } catch {
           // Default fallback
         }
@@ -338,6 +340,23 @@ export default function NavBar() {
                   >
                     My Membership
                   </Link>
+
+                  {isAdmin && (
+                    <Link
+                      href="/admin/grades"
+                      onClick={() => setUserMenuOpen(false)}
+                      style={{
+                        display: 'block',
+                        padding: '12px 20px',
+                        fontSize: 14,
+                        color: '#7B1A2D',
+                        fontWeight: 600,
+                        textDecoration: 'none',
+                      }}
+                    >
+                      🎓 Grading Dashboard
+                    </Link>
+                  )}
 
                   <button
                     onClick={handleLogout}
