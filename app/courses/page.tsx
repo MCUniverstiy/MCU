@@ -72,6 +72,20 @@ export default function CoursesPage() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [loading, setLoading] = useState(true);
 
+  // Enrollment / mock payment state
+  const [selectedCourse, setSelectedCourse] = useState<CourseItem | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [enrollmentId, setEnrollmentId] = useState<number | null>(null);
+  const [enrolledCourseIds, setEnrolledCourseIds] = useState<number[]>([]);
+  const [discountRate, setDiscountRate] = useState(0);
+  const [tierName, setTierName] = useState<string | null>(null);
+  const [cardNumber, setCardNumber] = useState('4242 •••• •••• 4242');
+  const [cardExpiry, setCardExpiry] = useState('12/28');
+  const [cardCvc, setCardCvc] = useState('123');
+  const [cardName, setCardName] = useState('Student Account');
+
   useEffect(() => {
     async function loadCourses() {
       try {
@@ -118,6 +132,106 @@ export default function CoursesPage() {
 
     loadCourses();
   }, []);
+
+  // Load current user's membership discount + already-enrolled courses
+  useEffect(() => {
+    async function loadUserContext() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: profile } = await supabase
+          .from('users')
+          .select('first_name, last_name, membershiptiers(membname, tiers, discountrate)')
+          .eq('id', user.id)
+          .single();
+
+        if (profile) {
+          if (profile.first_name || profile.last_name) {
+            setCardName(`${profile.first_name || ''} ${profile.last_name || ''}`.trim());
+          }
+          const tierObj = profile.membershiptiers as unknown as { membname?: string; tiers?: string; discountrate?: number } | null;
+          if (tierObj) {
+            setDiscountRate(Number(tierObj.discountrate) || 0);
+            setTierName(tierObj.membname || tierObj.tiers || null);
+          }
+        }
+
+        const { data: enrollments } = await supabase
+          .from('enrollments')
+          .select('courseid')
+          .eq('user_id', user.id);
+
+        if (enrollments) {
+          setEnrolledCourseIds(enrollments.map((e: { courseid: number }) => e.courseid));
+        }
+      } catch {
+        // Not logged in or tables missing — ignore
+      }
+    }
+
+    loadUserContext();
+  }, []);
+
+  const getFinalPrice = (price?: number) =>
+    price !== undefined ? Math.round(price * (1 - discountRate) * 100) / 100 : undefined;
+
+  const handleOpenEnrollModal = async (course: CourseItem) => {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      window.location.href = '/login?redirect=/courses';
+      return;
+    }
+
+    setSelectedCourse(course);
+    setPaymentSuccess(false);
+    setEnrollmentId(null);
+    setIsModalOpen(true);
+  };
+
+  const handleProcessPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCourse?.courseid) return;
+
+    setIsProcessing(true);
+
+    try {
+      // Simulate real bank processing delay
+      await new Promise((res) => setTimeout(res, 1500));
+
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) throw new Error('Not authenticated');
+
+      // Insert enrollment record linked by courseid + user UUID
+      const { data: inserted, error } = await supabase
+        .from('enrollments')
+        .insert({
+          user_id: user.id,
+          courseid: selectedCourse.courseid,
+          paymentstatus: 'Paid',
+        })
+        .select('enrollmentid')
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      if (inserted?.enrollmentid) setEnrollmentId(inserted.enrollmentid);
+      setEnrolledCourseIds((prev) => [...prev, selectedCourse.courseid!]);
+      setPaymentSuccess(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      alert('Payment execution failed: ' + msg);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const filteredCourses = selectedCategory === 'All'
     ? coursesList
@@ -212,17 +326,39 @@ export default function CoursesPage() {
                           </div>
                         )}
                       </div>
-                      <a
-                        href="/contact"
-                        style={{
+                      {course.courseid && enrolledCourseIds.includes(course.courseid) ? (
+                        <div style={{
                           display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 20,
-                          fontSize: 13, fontWeight: 600, color: '#E5A52E', transition: 'gap 0.2s',
-                        }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.gap = '10px'; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.gap = '6px'; }}
-                      >
-                        Enquire Now →
-                      </a>
+                          fontSize: 13, fontWeight: 700, color: '#2EC4B6',
+                        }}>
+                          ✓ Enrolled
+                        </div>
+                      ) : course.courseid ? (
+                        <button
+                          onClick={() => handleOpenEnrollModal(course)}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 20,
+                            fontSize: 13, fontWeight: 600, color: '#E5A52E', transition: 'gap 0.2s',
+                            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                          }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.gap = '10px'; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.gap = '6px'; }}
+                        >
+                          Enroll Now →
+                        </button>
+                      ) : (
+                        <a
+                          href="/contact"
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 20,
+                            fontSize: 13, fontWeight: 600, color: '#E5A52E', transition: 'gap 0.2s',
+                          }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.gap = '10px'; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.gap = '6px'; }}
+                        >
+                          Enquire Now →
+                        </a>
+                      )}
                     </div>
                   </div>
                 </ScrollReveal>
@@ -231,6 +367,197 @@ export default function CoursesPage() {
           )}
         </div>
       </section>
+
+      {/* MOCK COURSE PAYMENT MODAL */}
+      {isModalOpen && selectedCourse && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 24, width: '100%', maxWidth: 480,
+            padding: 36, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            position: 'relative', animation: 'fadeIn 0.2s ease-out',
+          }}>
+            <button
+              onClick={() => setIsModalOpen(false)}
+              style={{
+                position: 'absolute', top: 20, right: 20, background: 'none', border: 'none',
+                fontSize: 22, color: '#999', cursor: 'pointer',
+              }}
+            >
+              ✕
+            </button>
+
+            {paymentSuccess ? (
+              <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                <div style={{
+                  width: 72, height: 72, borderRadius: '50%', background: 'rgba(46,196,182,0.15)',
+                  color: '#2EC4B6', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 36, margin: '0 auto 20px',
+                }}>
+                  ✓
+                </div>
+                <h3 style={{ fontSize: 24, fontWeight: 700, color: '#1A1A2A', marginBottom: 10 }}>
+                  Enrollment Successful!
+                </h3>
+                <p style={{ fontSize: 15, color: '#666', lineHeight: 1.6, marginBottom: 24 }}>
+                  You are now enrolled in <strong>{selectedCourse.title}</strong>.
+                </p>
+
+                <div style={{
+                  background: '#F8F8FA', borderRadius: 12, padding: '16px 20px', textAlign: 'left',
+                  fontSize: 13, color: '#444', marginBottom: 28, border: '1px solid #EEE'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span>Enrollment ID:</span>
+                    <strong>#{enrollmentId ?? '—'}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span>Course ID:</span>
+                    <strong>#{selectedCourse.courseid}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span>Payment Status:</span>
+                    <strong style={{ color: '#2EC4B6' }}>Paid — saved to `enrollments`</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Amount Paid:</span>
+                    <strong>
+                      HK${getFinalPrice(selectedCourse.price)?.toLocaleString()}
+                      {discountRate > 0 && (
+                        <span style={{ color: '#2EC4B6' }}> ({(discountRate * 100).toFixed(0)}% off)</span>
+                      )}
+                    </strong>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  style={{
+                    width: '100%', padding: '14px', borderRadius: 30, background: '#7B1A2D',
+                    color: '#fff', fontSize: 15, fontWeight: 600, border: 'none', cursor: 'pointer',
+                  }}
+                >
+                  Continue Browsing Courses
+                </button>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                  <div style={{
+                    width: 40, height: 40, borderRadius: 10, background: 'rgba(123,26,45,0.1)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7B1A2D',
+                    fontWeight: 700, fontSize: 18,
+                  }}>
+                    💳
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: 20, fontWeight: 700, color: '#1A1A2A' }}>Course Checkout</h3>
+                    <p style={{ fontSize: 13, color: '#666' }}>Enrollment saved to Supabase `enrollments`</p>
+                  </div>
+                </div>
+
+                <div style={{
+                  background: '#F8F8FA', borderRadius: 16, padding: '16px 20px', marginBottom: 24,
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #EEE',
+                }}>
+                  <div style={{ paddingRight: 12 }}>
+                    <div style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>SELECTED COURSE</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#1A1A2A', marginTop: 2 }}>
+                      {selectedCourse.title}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    {discountRate > 0 && selectedCourse.price !== undefined && (
+                      <div style={{ fontSize: 12, color: '#999', textDecoration: 'line-through' }}>
+                        HK${selectedCourse.price.toLocaleString()}
+                      </div>
+                    )}
+                    <div style={{ fontSize: 18, fontWeight: 700, color: '#7B1A2D' }}>
+                      HK${getFinalPrice(selectedCourse.price)?.toLocaleString()}
+                    </div>
+                    {discountRate > 0 && (
+                      <div style={{ fontSize: 11, color: '#2EC4B6', fontWeight: 600 }}>
+                        {tierName} Member −{(discountRate * 100).toFixed(0)}%
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <form onSubmit={handleProcessPayment} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Cardholder Name</label>
+                    <input
+                      type="text" required value={cardName} onChange={(e) => setCardName(e.target.value)}
+                      style={{
+                        width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 10,
+                        border: '1.5px solid #DDD', outline: 'none', background: '#fff',
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Card Number (Mock Test Card)</label>
+                    <input
+                      type="text" required value={cardNumber} onChange={(e) => setCardNumber(e.target.value)}
+                      style={{
+                        width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 10,
+                        border: '1.5px solid #DDD', outline: 'none', background: '#fff',
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Expiry Date</label>
+                      <input
+                        type="text" required value={cardExpiry} onChange={(e) => setCardExpiry(e.target.value)}
+                        style={{
+                          width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 10,
+                          border: '1.5px solid #DDD', outline: 'none', background: '#fff',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>CVC</label>
+                      <input
+                        type="text" required value={cardCvc} onChange={(e) => setCardCvc(e.target.value)}
+                        style={{
+                          width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 10,
+                          border: '1.5px solid #DDD', outline: 'none', background: '#fff',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{
+                    fontSize: 12, color: '#888', background: 'rgba(229,165,46,0.1)', padding: '10px 14px',
+                    borderRadius: 8, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8,
+                  }}>
+                    <span>💡</span>
+                    <span>This is a <strong>mock payment sandbox</strong>. No real credit card will be charged.</span>
+                  </div>
+
+                  <button
+                    type="submit" disabled={isProcessing}
+                    style={{
+                      width: '100%', padding: '15px', borderRadius: 30, fontSize: 15, fontWeight: 600,
+                      background: isProcessing ? '#999' : '#7B1A2D', color: '#fff', border: 'none',
+                      cursor: isProcessing ? 'not-allowed' : 'pointer', marginTop: 12, transition: 'all 0.2s',
+                    }}
+                  >
+                    {isProcessing
+                      ? 'Processing Payment & Enrolling...'
+                      : `Pay HK$${getFinalPrice(selectedCourse.price)?.toLocaleString() ?? ''} & Enroll`}
+                  </button>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <section style={{ padding: '80px 0', background: '#F8F8FA' }}>
         <div className="container">
