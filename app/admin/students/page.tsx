@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import SiteLayout from '@/components/SiteLayout';
 import { createClient } from '@/lib/supabase/client';
+import {
+  CertTemplateSettings, DEFAULT_CERT_TEMPLATE, mergeTemplate, fieldStyle,
+} from '@/lib/certTemplate';
 
 interface CertificateInfo {
   certificatenumber: string;
@@ -10,45 +13,6 @@ interface CertificateInfo {
   coursename: string | null;
   issuedate: string | null;
 }
-
-// =====================================================================
-// CERTIFICATE TEMPLATE SETTINGS — EDIT THIS BLOCK ONLY
-// ---------------------------------------------------------------------
-// To use a company template image:
-//   1. Upload the image to the `public` folder (GitHub → Add file →
-//      Upload files), e.g. certificate-template.png
-//   2. Set backgroundImage below to '/certificate-template.png'
-//   3. Adjust each field's top / left / width / fontSize until the text
-//      sits on the right spot of your design. top & left are % of the
-//      certificate (0 = top/left edge, 50 = middle, 100 = bottom/right).
-//   4. If your image already contains headings ("Certificate of
-//      Completion" etc.), set showDecorations to false.
-// Save/commit → the live site updates itself in ~2 minutes.
-// =====================================================================
-const CERT_TEMPLATE = {
-  backgroundImage: '',          // '' = plain classic design, or '/certificate-template.png'
-  aspectRatio: '1414 / 1000',   // shape: '1414 / 1000' = A4 landscape, '1000 / 1414' = portrait
-  showDecorations: true,        // false = hide built-in headings/border (image has its own)
-  fields: {
-    //          top%   left%  width%  fontSize  bold    color        align
-    name:     { top: 42, left: 0,  width: 100, size: 30, bold: true,  color: '#7B1A2D', align: 'center' as const },
-    course:   { top: 58, left: 0,  width: 100, size: 20, bold: true,  color: '#1A1A2A', align: 'center' as const },
-    certNo:   { top: 84, left: 6,  width: 40,  size: 12, bold: true,  color: '#1A1A2A', align: 'left' as const },
-    issued:   { top: 84, left: 54, width: 40,  size: 12, bold: true,  color: '#1A1A2A', align: 'right' as const },
-  },
-};
-// ================== END OF TEMPLATE SETTINGS =========================
-
-const fieldStyle = (f: { top: number; left: number; width: number; size: number; bold: boolean; color: string; align: 'left' | 'center' | 'right' }) => ({
-  position: 'absolute' as const,
-  top: `${f.top}%`,
-  left: `${f.left}%`,
-  width: `${f.width}%`,
-  fontSize: f.size,
-  fontWeight: f.bold ? 700 : 400,
-  color: f.color,
-  textAlign: f.align,
-});
 
 interface EnrollmentInfo {
   enrollmentid: number;
@@ -81,6 +45,7 @@ export default function AdminStudentsPage() {
   const [memberFilter, setMemberFilter] = useState<'all' | 'members' | 'nonmembers'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [certToPrint, setCertToPrint] = useState<CertificateInfo | null>(null);
+  const [certTpl, setCertTpl] = useState<CertTemplateSettings>(DEFAULT_CERT_TEMPLATE);
 
   useEffect(() => {
     async function init() {
@@ -97,6 +62,11 @@ export default function AdminStudentsPage() {
         setIsAdmin(admin);
         setAuthChecked(true);
         if (!admin) return;
+
+        // Load saved certificate template design (fall back to default)
+        const { data: tplRow } = await supabase
+          .from('certtemplate').select('settings').eq('id', 1).single();
+        if (tplRow?.settings) setCertTpl(mergeTemplate(tplRow.settings));
 
         const { data, error } = await supabase
           .from('users')
@@ -369,12 +339,12 @@ export default function AdminStudentsPage() {
               id="certificate-print-area"
               style={{
                 position: 'relative',
-                aspectRatio: CERT_TEMPLATE.aspectRatio,
+                aspectRatio: certTpl.aspectRatio,
                 fontFamily: 'Georgia, "Times New Roman", serif',
                 color: '#1A1A2A',
-                ...(CERT_TEMPLATE.backgroundImage
+                ...(certTpl.backgroundImage
                   ? {
-                      backgroundImage: `url(${CERT_TEMPLATE.backgroundImage})`,
+                      backgroundImage: `url(${certTpl.backgroundImage})`,
                       backgroundSize: '100% 100%',
                       backgroundRepeat: 'no-repeat',
                     }
@@ -386,7 +356,7 @@ export default function AdminStudentsPage() {
               }}
             >
               {/* Built-in decorations — hidden when your template image has its own */}
-              {CERT_TEMPLATE.showDecorations && !CERT_TEMPLATE.backgroundImage && (
+              {!certTpl.backgroundImage && (
                 <>
                   <div style={{ position: 'absolute', top: '8%', width: '100%', textAlign: 'center', fontSize: 13, letterSpacing: '0.35em', textTransform: 'uppercase', color: '#7B1A2D', fontWeight: 700 }}>
                     MCU Institute
@@ -402,26 +372,26 @@ export default function AdminStudentsPage() {
                     has successfully completed the program
                   </div>
                   <div style={{ position: 'absolute', top: '80%', width: '100%', textAlign: 'center', fontSize: 26 }}>🎓</div>
-                  <div style={{ position: 'absolute', top: `${CERT_TEMPLATE.fields.certNo.top + 5}%`, left: `${CERT_TEMPLATE.fields.certNo.left}%`, width: `${CERT_TEMPLATE.fields.certNo.width}%`, fontSize: 11, color: '#555', textAlign: 'left' }}>
+                  <div style={{ position: 'absolute', top: `${certTpl.fields.certNo.top + 5}%`, left: `${certTpl.fields.certNo.left}%`, width: `${certTpl.fields.certNo.width}%`, fontSize: 11, color: '#555', textAlign: 'left' }}>
                     Certificate No.
                   </div>
-                  <div style={{ position: 'absolute', top: `${CERT_TEMPLATE.fields.issued.top + 5}%`, left: `${CERT_TEMPLATE.fields.issued.left}%`, width: `${CERT_TEMPLATE.fields.issued.width}%`, fontSize: 11, color: '#555', textAlign: 'right' }}>
+                  <div style={{ position: 'absolute', top: `${certTpl.fields.issued.top + 5}%`, left: `${certTpl.fields.issued.left}%`, width: `${certTpl.fields.issued.width}%`, fontSize: 11, color: '#555', textAlign: 'right' }}>
                     Date of Issue
                   </div>
                 </>
               )}
 
-              {/* THE 4 AUTO-FILLED FIELDS — positions come from CERT_TEMPLATE above */}
-              <div style={{ ...fieldStyle(CERT_TEMPLATE.fields.name), fontStyle: 'italic' }}>
+              {/* THE 4 AUTO-FILLED FIELDS — positions come from the saved template (/admin/template) */}
+              <div style={{ ...fieldStyle(certTpl.fields.name), fontStyle: 'italic' }}>
                 {certToPrint.recipientname || '—'}
               </div>
-              <div style={fieldStyle(CERT_TEMPLATE.fields.course)}>
+              <div style={fieldStyle(certTpl.fields.course)}>
                 {certToPrint.coursename || '—'}
               </div>
-              <div style={fieldStyle(CERT_TEMPLATE.fields.certNo)}>
+              <div style={fieldStyle(certTpl.fields.certNo)}>
                 {certToPrint.certificatenumber}
               </div>
-              <div style={fieldStyle(CERT_TEMPLATE.fields.issued)}>
+              <div style={fieldStyle(certTpl.fields.issued)}>
                 {certToPrint.issuedate || '—'}
               </div>
             </div>

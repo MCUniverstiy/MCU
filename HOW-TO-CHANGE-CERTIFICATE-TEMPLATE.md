@@ -4,78 +4,64 @@ The certificate (Student CRM → View Certificate) auto-fills the student's
 **name, course, certificate number and issue date** from the database.
 You never type those — you only control the DESIGN and WHERE the text sits.
 
-Everything you need to edit is in ONE clearly-marked settings block:
+---
 
-```
-File:  app/admin/students/page.tsx
-Block: "CERTIFICATE TEMPLATE SETTINGS — EDIT THIS BLOCK ONLY"
-       (near the top of the file, you can't miss it)
-```
+## ⭐ The easy way — the built-in visual editor
 
-You do all edits on the GitHub website (github.com/MCUniverstiy/MCU):
-open the file → click the ✏️ pencil → edit → **Commit changes** →
-the live site updates itself in ~2 minutes.
+Log in as an admin → click your name (top right) → **🖼 Certificate Template**.
+
+On that page you can do everything yourself, with a live preview:
+
+1. **Upload** your template image (PNG/JPG) — or remove it to go back to the
+   classic built-in design
+2. Pick **Landscape / Portrait** to match your image
+3. Select a field — **Student Name / Course / Certificate No. / Date of
+   Issue** — using the buttons, or just click the text on the preview
+4. Drag the **sliders**: how far down the page, from the left, box width,
+   text size. Tick **Bold**, pick a **color**, choose the alignment
+5. Click **💾 Save Template**
+
+From that moment, every certificate opened in Student CRM uses the new
+design — with each student's real details still filled in automatically.
+No code. No GitHub. Applies instantly (no waiting for a deploy).
+
+**One-time setup (already done if the editor works):** run
+`supabase/template.sql` once in the Supabase SQL Editor. It creates the
+settings table and the image storage bucket the editor uses.
+
+Made a mess? Click **Reset to default design** and Save.
 
 ---
 
-## A. Swap in a new template image
+## The backup way — editing the fallback in code
 
-1. Design the certificate anywhere (Canva, Photoshop…), export as PNG,
-   leaving blank areas where name / course / number / date will go.
-2. GitHub → `public` folder → **Add file → Upload files** → upload it,
-   e.g. `certificate-template.png` → Commit.
-   (Replacing an old one? Delete the old file first, upload the new one
-   with the SAME file name — then you can skip step 3.)
-3. In the settings block set:
-
-   ```
-   backgroundImage: '/certificate-template.png',
-   ```
-
-   Portrait template? Also change `aspectRatio` to `'1000 / 1414'`.
-
-## B. Move ALL the text positions for a new design
-
-In the settings block, each of the 4 fields has one line of numbers:
+If the database has no saved template (or the editor page is unavailable),
+the certificate falls back to defaults defined in:
 
 ```
-name:   { top: 42, left: 0,  width: 100, size: 30, bold: true,  color: '#7B1A2D', align: 'center' },
-course: { top: 58, left: 0,  width: 100, size: 20, bold: true,  color: '#1A1A2A', align: 'center' },
-certNo: { top: 84, left: 6,  width: 40,  size: 12, bold: true,  color: '#1A1A2A', align: 'left'   },
-issued: { top: 84, left: 54, width: 40,  size: 12, bold: true,  color: '#1A1A2A', align: 'right'  },
+File: lib/certTemplate.ts   →   DEFAULT_CERT_TEMPLATE
 ```
 
-What each number means:
+Each field has one line of numbers you can edit on the GitHub website
+(✏️ pencil → edit → Commit; the site redeploys itself in ~2 minutes):
 
 | Setting | Meaning |
 |---|---|
-| `top`   | how far DOWN the page, in % (0 = top edge, 50 = middle, 100 = bottom) |
+| `top`   | how far DOWN the page, in % (0 = top, 50 = middle, 100 = bottom) |
 | `left`  | how far RIGHT the text box starts, in % |
 | `width` | how wide the text box is, in % |
 | `size`  | text size |
 | `bold`  | `true` or `false` |
-| `color` | hex color code — google "color picker" to get one |
-| `align` | `'left'`, `'center'` or `'right'` (inside the text box) |
-
-So "move the name lower and to the left" = change its `top` and `left`
-numbers. That's all repositioning ever is.
-
-Workflow: change numbers → Commit → wait 2 min → View Certificate →
-check → adjust → Commit again. Two or three rounds is normal.
-
-## C. If your image already contains headings
-
-If the template image has its own "Certificate of Completion" title etc.,
-the built-in decorative text disappears automatically as soon as
-`backgroundImage` is set — nothing else to do.
-
----
+| `color` | hex color code — google "color picker" |
+| `align` | `'left'`, `'center'` or `'right'` |
 
 ## Rules (breaking these breaks the system)
-1. Do not touch anything OUTSIDE the settings block.
-2. Do not rename the four field names (name / course / certNo / issued).
-3. Do not change `id="certificate-print-area"` elsewhere in the file.
+1. Don't rename the four fields (name / course / certNo / issued).
+2. Don't change `id="certificate-print-area"` in
+   `app/admin/students/page.tsx` (the Print button needs it).
+3. Prefer the visual editor — only touch code if you must.
 
 ## If something goes wrong
-GitHub saves every version. Open the file → **History** → pick the last
-working version → Revert. Nothing is ever lost.
+- Visual editor: **Reset to default design** → Save.
+- Code changes: GitHub keeps every version — open the file → **History** →
+  revert to the last working version. Nothing is ever lost.

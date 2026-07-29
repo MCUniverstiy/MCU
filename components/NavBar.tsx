@@ -371,6 +371,20 @@ export default function NavBar() {
                       >
                         👥 Student CRM
                       </Link>
+                      <Link
+                        href="/admin/template"
+                        onClick={() => setUserMenuOpen(false)}
+                        style={{
+                          display: 'block',
+                          padding: '12px 20px',
+                          fontSize: 14,
+                          color: '#7B1A2D',
+                          fontWeight: 600,
+                          textDecoration: 'none',
+                        }}
+                      >
+                        🖼 Certificate Template
+                      </Link>
                     </>
                   )}
 
