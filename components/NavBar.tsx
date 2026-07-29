@@ -342,20 +342,36 @@ export default function NavBar() {
                   </Link>
 
                   {isAdmin && (
-                    <Link
-                      href="/admin/grades"
-                      onClick={() => setUserMenuOpen(false)}
-                      style={{
-                        display: 'block',
-                        padding: '12px 20px',
-                        fontSize: 14,
-                        color: '#7B1A2D',
-                        fontWeight: 600,
-                        textDecoration: 'none',
-                      }}
-                    >
-                      🎓 Grading Dashboard
-                    </Link>
+                    <>
+                      <Link
+                        href="/admin/grades"
+                        onClick={() => setUserMenuOpen(false)}
+                        style={{
+                          display: 'block',
+                          padding: '12px 20px',
+                          fontSize: 14,
+                          color: '#7B1A2D',
+                          fontWeight: 600,
+                          textDecoration: 'none',
+                        }}
+                      >
+                        🎓 Grading Dashboard
+                      </Link>
+                      <Link
+                        href="/admin/students"
+                        onClick={() => setUserMenuOpen(false)}
+                        style={{
+                          display: 'block',
+                          padding: '12px 20px',
+                          fontSize: 14,
+                          color: '#7B1A2D',
+                          fontWeight: 600,
+                          textDecoration: 'none',
+                        }}
+                      >
+                        👥 Student CRM
+                      </Link>
+                    </>
                   )}
 
                   <button
