@@ -39,6 +39,7 @@ export default function AdminStudentsPage() {
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [memberFilter, setMemberFilter] = useState<'all' | 'members' | 'nonmembers'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [certToPrint, setCertToPrint] = useState<CertificateInfo | null>(null);
 
@@ -84,6 +85,11 @@ export default function AdminStudentsPage() {
   }, []);
 
   const filtered = students.filter((s) => {
+    // Membership filter
+    if (memberFilter === 'members' && !s.memberid) return false;
+    if (memberFilter === 'nonmembers' && s.memberid) return false;
+
+    // Search filter
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -144,6 +150,29 @@ export default function AdminStudentsPage() {
                 border: '1.5px solid #DDD', outline: 'none', background: '#fff',
               }}
             />
+
+            {/* Membership filter buttons */}
+            <div style={{ display: 'flex', gap: 8, background: '#fff', borderRadius: 30, padding: 4, border: '1.5px solid #DDD' }}>
+              {([
+                { key: 'all', label: 'All' },
+                { key: 'members', label: '💳 Members Only' },
+                { key: 'nonmembers', label: 'Non-Members' },
+              ] as const).map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setMemberFilter(f.key)}
+                  style={{
+                    padding: '9px 18px', borderRadius: 30, fontSize: 13, fontWeight: 600,
+                    border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                    background: memberFilter === f.key ? '#7B1A2D' : 'transparent',
+                    color: memberFilter === f.key ? '#fff' : '#666',
+                  }}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
             <div style={{ display: 'flex', gap: 12 }}>
               {[
                 { label: 'Students', value: students.length },
