@@ -11,6 +11,45 @@ interface CertificateInfo {
   issuedate: string | null;
 }
 
+// =====================================================================
+// CERTIFICATE TEMPLATE SETTINGS — EDIT THIS BLOCK ONLY
+// ---------------------------------------------------------------------
+// To use a company template image:
+//   1. Upload the image to the `public` folder (GitHub → Add file →
+//      Upload files), e.g. certificate-template.png
+//   2. Set backgroundImage below to '/certificate-template.png'
+//   3. Adjust each field's top / left / width / fontSize until the text
+//      sits on the right spot of your design. top & left are % of the
+//      certificate (0 = top/left edge, 50 = middle, 100 = bottom/right).
+//   4. If your image already contains headings ("Certificate of
+//      Completion" etc.), set showDecorations to false.
+// Save/commit → the live site updates itself in ~2 minutes.
+// =====================================================================
+const CERT_TEMPLATE = {
+  backgroundImage: '',          // '' = plain classic design, or '/certificate-template.png'
+  aspectRatio: '1414 / 1000',   // shape: '1414 / 1000' = A4 landscape, '1000 / 1414' = portrait
+  showDecorations: true,        // false = hide built-in headings/border (image has its own)
+  fields: {
+    //          top%   left%  width%  fontSize  bold    color        align
+    name:     { top: 42, left: 0,  width: 100, size: 30, bold: true,  color: '#7B1A2D', align: 'center' as const },
+    course:   { top: 58, left: 0,  width: 100, size: 20, bold: true,  color: '#1A1A2A', align: 'center' as const },
+    certNo:   { top: 84, left: 6,  width: 40,  size: 12, bold: true,  color: '#1A1A2A', align: 'left' as const },
+    issued:   { top: 84, left: 54, width: 40,  size: 12, bold: true,  color: '#1A1A2A', align: 'right' as const },
+  },
+};
+// ================== END OF TEMPLATE SETTINGS =========================
+
+const fieldStyle = (f: { top: number; left: number; width: number; size: number; bold: boolean; color: string; align: 'left' | 'center' | 'right' }) => ({
+  position: 'absolute' as const,
+  top: `${f.top}%`,
+  left: `${f.left}%`,
+  width: `${f.width}%`,
+  fontSize: f.size,
+  fontWeight: f.bold ? 700 : 400,
+  color: f.color,
+  textAlign: f.align,
+});
+
 interface EnrollmentInfo {
   enrollmentid: number;
   enrollmentdate: string | null;
@@ -329,36 +368,61 @@ export default function AdminStudentsPage() {
             <div
               id="certificate-print-area"
               style={{
-                background: '#FFFDF8', padding: '56px 64px', borderRadius: 6,
-                border: '10px double #7B1A2D', textAlign: 'center', position: 'relative',
-                fontFamily: 'Georgia, "Times New Roman", serif', color: '#1A1A2A',
+                position: 'relative',
+                aspectRatio: CERT_TEMPLATE.aspectRatio,
+                fontFamily: 'Georgia, "Times New Roman", serif',
+                color: '#1A1A2A',
+                ...(CERT_TEMPLATE.backgroundImage
+                  ? {
+                      backgroundImage: `url(${CERT_TEMPLATE.backgroundImage})`,
+                      backgroundSize: '100% 100%',
+                      backgroundRepeat: 'no-repeat',
+                    }
+                  : {
+                      background: '#FFFDF8',
+                      border: '10px double #7B1A2D',
+                      borderRadius: 6,
+                    }),
               }}
             >
-              <div style={{ fontSize: 13, letterSpacing: '0.35em', textTransform: 'uppercase', color: '#7B1A2D', fontWeight: 700 }}>
-                MCU Institute
-              </div>
-              <div style={{ fontSize: 34, fontWeight: 700, margin: '18px 0 6px' }}>Certificate of Completion</div>
-              <div style={{ width: 80, height: 2, background: '#E5A52E', margin: '0 auto 22px' }} />
-              <div style={{ fontSize: 14, color: '#666', marginBottom: 10 }}>This is to certify that</div>
-              <div style={{ fontSize: 30, fontWeight: 700, color: '#7B1A2D', marginBottom: 10, fontStyle: 'italic' }}>
+              {/* Built-in decorations — hidden when your template image has its own */}
+              {CERT_TEMPLATE.showDecorations && !CERT_TEMPLATE.backgroundImage && (
+                <>
+                  <div style={{ position: 'absolute', top: '8%', width: '100%', textAlign: 'center', fontSize: 13, letterSpacing: '0.35em', textTransform: 'uppercase', color: '#7B1A2D', fontWeight: 700 }}>
+                    MCU Institute
+                  </div>
+                  <div style={{ position: 'absolute', top: '15%', width: '100%', textAlign: 'center', fontSize: 34, fontWeight: 700 }}>
+                    Certificate of Completion
+                  </div>
+                  <div style={{ position: 'absolute', top: '28%', left: '45%', width: '10%', height: 2, background: '#E5A52E' }} />
+                  <div style={{ position: 'absolute', top: '34%', width: '100%', textAlign: 'center', fontSize: 14, color: '#666' }}>
+                    This is to certify that
+                  </div>
+                  <div style={{ position: 'absolute', top: '52%', width: '100%', textAlign: 'center', fontSize: 14, color: '#666' }}>
+                    has successfully completed the program
+                  </div>
+                  <div style={{ position: 'absolute', top: '80%', width: '100%', textAlign: 'center', fontSize: 26 }}>🎓</div>
+                  <div style={{ position: 'absolute', top: `${CERT_TEMPLATE.fields.certNo.top + 5}%`, left: `${CERT_TEMPLATE.fields.certNo.left}%`, width: `${CERT_TEMPLATE.fields.certNo.width}%`, fontSize: 11, color: '#555', textAlign: 'left' }}>
+                    Certificate No.
+                  </div>
+                  <div style={{ position: 'absolute', top: `${CERT_TEMPLATE.fields.issued.top + 5}%`, left: `${CERT_TEMPLATE.fields.issued.left}%`, width: `${CERT_TEMPLATE.fields.issued.width}%`, fontSize: 11, color: '#555', textAlign: 'right' }}>
+                    Date of Issue
+                  </div>
+                </>
+              )}
+
+              {/* THE 4 AUTO-FILLED FIELDS — positions come from CERT_TEMPLATE above */}
+              <div style={{ ...fieldStyle(CERT_TEMPLATE.fields.name), fontStyle: 'italic' }}>
                 {certToPrint.recipientname || '—'}
               </div>
-              <div style={{ fontSize: 14, color: '#666', marginBottom: 10 }}>has successfully completed the program</div>
-              <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 28 }}>
+              <div style={fieldStyle(CERT_TEMPLATE.fields.course)}>
                 {certToPrint.coursename || '—'}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#555', marginTop: 30 }}>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontWeight: 700, color: '#1A1A2A' }}>{certToPrint.certificatenumber}</div>
-                  <div style={{ borderTop: '1px solid #999', marginTop: 4, paddingTop: 4 }}>Certificate No.</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 26 }}>🎓</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 700, color: '#1A1A2A' }}>{certToPrint.issuedate || '—'}</div>
-                  <div style={{ borderTop: '1px solid #999', marginTop: 4, paddingTop: 4 }}>Date of Issue</div>
-                </div>
+              <div style={fieldStyle(CERT_TEMPLATE.fields.certNo)}>
+                {certToPrint.certificatenumber}
+              </div>
+              <div style={fieldStyle(CERT_TEMPLATE.fields.issued)}>
+                {certToPrint.issuedate || '—'}
               </div>
             </div>
 

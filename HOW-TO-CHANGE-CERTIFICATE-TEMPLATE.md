@@ -1,98 +1,81 @@
-# How to Use Your Own Certificate Template (No Developer Needed)
+# How to Change the Certificate Template (No Developer Needed)
 
-The certificate that appears in **Student CRM → View Certificate** is drawn by code in ONE file:
+The certificate (Student CRM → View Certificate) auto-fills the student's
+**name, course, certificate number and issue date** from the database.
+You never type those — you only control the DESIGN and WHERE the text sits.
 
-```
-app/admin/students/page.tsx   →  the block starting with  id="certificate-print-area"
-```
-
-The student's **name, course, certificate number and issue date** are filled in
-automatically from the database. You NEVER type them. They appear in the code as:
+Everything you need to edit is in ONE clearly-marked settings block:
 
 ```
-{certToPrint.recipientname}      ← student name
-{certToPrint.coursename}         ← course name
-{certToPrint.certificatenumber}  ← e.g. MCU-2026-000001
-{certToPrint.issuedate}          ← date of issue
+File:  app/admin/students/page.tsx
+Block: "CERTIFICATE TEMPLATE SETTINGS — EDIT THIS BLOCK ONLY"
+       (near the top of the file, you can't miss it)
 ```
 
-⚠️ TWO RULES — breaking these breaks the system:
-1. Never rename or delete those four `{certToPrint.xxx}` expressions.
-2. Never change `id="certificate-print-area"` (the Print button needs it).
-
-Everything else (colors, text, layout, background) is safe to change.
+You do all edits on the GitHub website (github.com/MCUniverstiy/MCU):
+open the file → click the ✏️ pencil → edit → **Commit changes** →
+the live site updates itself in ~2 minutes.
 
 ---
 
-## Putting your company template image behind the text
+## A. Swap in a new template image
 
-You need the template as a **PNG or JPG**, ideally blank in the spots where
-the name / course / number / date should go.
-
-### Step 1 — Upload the image to the website files
-1. Go to github.com/MCUniverstiy/MCU
-2. Open the `public` folder
-3. Click **Add file → Upload files**
-4. Upload your image, name it exactly: `certificate-template.png`
-5. Click **Commit changes**
-
-### Step 2 — Point the certificate at your image
-1. In GitHub open `app/admin/students/page.tsx` and click the ✏️ pencil (Edit)
-2. Press Ctrl+F in the browser and search for: `certificate-print-area`
-3. In the `style={{ ... }}` right below it, REPLACE these lines:
+1. Design the certificate anywhere (Canva, Photoshop…), export as PNG,
+   leaving blank areas where name / course / number / date will go.
+2. GitHub → `public` folder → **Add file → Upload files** → upload it,
+   e.g. `certificate-template.png` → Commit.
+   (Replacing an old one? Delete the old file first, upload the new one
+   with the SAME file name — then you can skip step 3.)
+3. In the settings block set:
 
    ```
-   background: '#FFFDF8', padding: '56px 64px', borderRadius: 6,
-   border: '10px double #7B1A2D', textAlign: 'center', position: 'relative',
+   backgroundImage: '/certificate-template.png',
    ```
 
-   WITH:
+   Portrait template? Also change `aspectRatio` to `'1000 / 1414'`.
 
-   ```
-   backgroundImage: 'url(/certificate-template.png)',
-   backgroundSize: '100% 100%',
-   aspectRatio: '1414 / 1000',
-   textAlign: 'center', position: 'relative', padding: '56px 64px',
-   ```
+## B. Move ALL the text positions for a new design
 
-   (`1414 / 1000` = A4 landscape shape. If your template is portrait use `1000 / 1414`.)
-
-4. Optional: delete the decorative lines you don't need anymore — the
-   "MCU Institute" heading, the "Certificate of Completion" title, the gold
-   divider line, the 🎓 emoji — IF your template image already contains them.
-   Delete whole `<div> ... </div>` blocks only, and never the four
-   `{certToPrint.xxx}` ones.
-
-5. Scroll down, **Commit changes**. The live site updates itself in ~2 minutes
-   (Vercel redeploys automatically on every commit).
-
-### Step 3 — Move the text onto the right spots
-Each text block can be pinned to an exact position on the template by adding
-`position: 'absolute'` with percentages. Example — put the student name 45%
-down the page:
+In the settings block, each of the 4 fields has one line of numbers:
 
 ```
-<div style={{ position: 'absolute', top: '45%', left: 0, width: '100%',
-              textAlign: 'center', fontSize: 30, fontWeight: 700, color: '#7B1A2D' }}>
-  {certToPrint.recipientname}
-</div>
+name:   { top: 42, left: 0,  width: 100, size: 30, bold: true,  color: '#7B1A2D', align: 'center' },
+course: { top: 58, left: 0,  width: 100, size: 20, bold: true,  color: '#1A1A2A', align: 'center' },
+certNo: { top: 84, left: 6,  width: 40,  size: 12, bold: true,  color: '#1A1A2A', align: 'left'   },
+issued: { top: 84, left: 54, width: 40,  size: 12, bold: true,  color: '#1A1A2A', align: 'right'  },
 ```
 
-- `top` = distance from the top (0% = top edge, 50% = middle, 90% = near bottom)
-- `fontSize` = text size, `color` = hex color code (google "color picker")
-- Repeat the same idea for coursename / certificatenumber / issuedate
+What each number means:
 
-Then: commit → wait 2 min → open View Certificate → check → adjust the
-percentages → commit again. Two or three rounds is normal.
+| Setting | Meaning |
+|---|---|
+| `top`   | how far DOWN the page, in % (0 = top edge, 50 = middle, 100 = bottom) |
+| `left`  | how far RIGHT the text box starts, in % |
+| `width` | how wide the text box is, in % |
+| `size`  | text size |
+| `bold`  | `true` or `false` |
+| `color` | hex color code — google "color picker" to get one |
+| `align` | `'left'`, `'center'` or `'right'` (inside the text box) |
+
+So "move the name lower and to the left" = change its `top` and `left`
+numbers. That's all repositioning ever is.
+
+Workflow: change numbers → Commit → wait 2 min → View Certificate →
+check → adjust → Commit again. Two or three rounds is normal.
+
+## C. If your image already contains headings
+
+If the template image has its own "Certificate of Completion" title etc.,
+the built-in decorative text disappears automatically as soon as
+`backgroundImage` is set — nothing else to do.
 
 ---
 
-## If you break something
-Every change is saved in GitHub. Open the file → **History** (top right) →
-pick the version that worked → copy it back (or use "Revert"). Nothing is
-ever lost.
+## Rules (breaking these breaks the system)
+1. Do not touch anything OUTSIDE the settings block.
+2. Do not rename the four field names (name / course / certNo / issued).
+3. Do not change `id="certificate-print-area"` elsewhere in the file.
 
-## Checking the result
-Student CRM → expand any student with a certificate → **View Certificate** →
-**Print / Save as PDF**. The print button only prints the certificate, nothing
-else on the page.
+## If something goes wrong
+GitHub saves every version. Open the file → **History** → pick the last
+working version → Revert. Nothing is ever lost.
