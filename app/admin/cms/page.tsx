@@ -7,6 +7,7 @@ const cards = [
   ['🛍️','Shop products','Create products, prices, descriptions, badges and photos','/admin/cms/products'],
   ['📚','Courses','Manage course titles, headings, descriptions, prices, metadata and photos','/admin/cms/courses'],
   ['👨‍🏫','Instructors','Add instructor names, bios and profile photos','/admin/cms/instructors'],
+  ['📨','Enquiries','Read and manage contact form enquiries','/admin/enquiries'],
   ['👥','Students','View students, enrollments, grades and certificates','/admin/students'],
   ['✅','Grades','Manage student results and certificates','/admin/grades'],
 ];
