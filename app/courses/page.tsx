@@ -60,6 +60,15 @@ const fallbackCourses: CourseItem[] = [
 
 const categories = ['All', 'Financial Planning', 'Wealth Management', 'Family Office', 'Executive'];
 
+function inferCategory(value: string) {
+  const text = value.toLowerCase();
+  if (text.includes('financial') || text.includes('planning')) return 'Financial Planning';
+  if (text.includes('wealth') || text.includes('management')) return 'Wealth Management';
+  if (text.includes('family') || text.includes('office')) return 'Family Office';
+  if (text.includes('executive') || text.includes('ceo')) return 'Executive';
+  return 'Other';
+}
+
 const catColor: Record<string, string> = {
   'Financial Planning': '#2EC4B6',
   'Wealth Management': '#7B1A2D',
@@ -96,6 +105,7 @@ export default function CoursesPage() {
             courseid,
             coursename,
             coursetype,
+            category,
             price,
             description,
             duration,
@@ -115,7 +125,7 @@ export default function CoursesPage() {
             return {
               courseid: c.courseid as number,
               title: (c.coursename as string) || 'Untitled Course',
-              cat: (c.coursetype as string) || 'General',
+              cat: (c.category as string) || inferCategory((c.coursetype as string) || ''),
               desc: (c.description as string) || 'Professional development course.',
               duration: (c.duration as string) || '10 weeks',
               level: (c.level as string) || 'Professional',

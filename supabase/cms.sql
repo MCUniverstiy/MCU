@@ -7,10 +7,18 @@ CREATE TABLE IF NOT EXISTS public.products (
   image_url text, description text, badge varchar(50), badge_color varchar(20) DEFAULT '#E5A52E',
   sort_order integer NOT NULL DEFAULT 0, active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS category varchar(80);
 ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS image_url text;
 ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS duration varchar(50) DEFAULT '10 weeks';
 ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS level varchar(50) DEFAULT 'Professional';
 ALTER TABLE public.courses ADD COLUMN IF NOT EXISTS format varchar(50) DEFAULT 'Hybrid';
+UPDATE public.courses SET category = CASE
+  WHEN lower(coursetype) LIKE '%financial%' OR lower(coursetype) LIKE '%planning%' THEN 'Financial Planning'
+  WHEN lower(coursetype) LIKE '%wealth%' OR lower(coursetype) LIKE '%management%' THEN 'Wealth Management'
+  WHEN lower(coursetype) LIKE '%family%' OR lower(coursetype) LIKE '%office%' THEN 'Family Office'
+  WHEN lower(coursetype) LIKE '%executive%' OR lower(coursetype) LIKE '%ceo%' THEN 'Executive'
+  ELSE 'Other' END
+WHERE category IS NULL;
 ALTER TABLE public.instructors ADD COLUMN IF NOT EXISTS bio text;
 ALTER TABLE public.instructors ADD COLUMN IF NOT EXISTS photo_url text;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_admin boolean NOT NULL DEFAULT false;
