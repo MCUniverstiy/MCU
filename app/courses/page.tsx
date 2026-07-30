@@ -98,6 +98,10 @@ export default function CoursesPage() {
             coursetype,
             price,
             description,
+            duration,
+            level,
+            format,
+            image_url,
             instructors (
               firstname,
               lastname
@@ -113,10 +117,10 @@ export default function CoursesPage() {
               title: (c.coursename as string) || 'Untitled Course',
               cat: (c.coursetype as string) || 'General',
               desc: (c.description as string) || 'Professional development course.',
-              duration: '10 weeks',
-              level: 'Professional',
-              format: 'Hybrid',
-              img: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=800&q=80',
+              duration: (c.duration as string) || '10 weeks',
+              level: (c.level as string) || 'Professional',
+              format: (c.format as string) || 'Hybrid',
+              img: (c.image_url as string) || 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=800&q=80',
               price: c.price as number,
               instructorName,
             };

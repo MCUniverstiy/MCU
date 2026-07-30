@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /profile/
+
+Sitemap: https://mcu-three.vercel.app/sitemap.xml
