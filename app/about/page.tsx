@@ -15,9 +15,26 @@ const values = [
 ];
 
 const team = [
-  { name: 'Dr. Raymond Chan', role: 'Chief Executive Officer', img: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&q=80' },
-  { name: 'Ms. Sarah Lam', role: 'Academic Director', img: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&q=80' },
-  { name: 'Mr. David Wong', role: 'Head of Curriculum', img: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&q=80' },
+  {
+    name: 'Denis Walsh',
+    role: 'Founder & CEO of Money Concepts International Inc. and Money Concepts Capital Corp.',
+    img: '/team/denis-walsh.png',
+  },
+  {
+    name: 'Barry Dayley',
+    role: 'Financial planner, prior to being appointed to the headquarters staff of Money Concepts International, Inc.',
+    img: '/team/barry-dayley.png',
+  },
+  {
+    name: 'Terri Walsh',
+    role: 'Senior VP and Chief Compliance Officer of Money Concepts Capital Corp., USA',
+    img: '/team/terri-walsh.png',
+  },
+  {
+    name: 'Bruce VonCannon',
+    role: 'Former CEO of Banque Privée Edmond de Rothschild in Hong Kong',
+    img: '/team/bruce-voncannon.png',
+  },
 ];
 
 const timeline = [
@@ -125,18 +142,21 @@ export default function AboutPage() {
                 <span style={{ fontSize: 13, fontWeight: 600, color: '#7B1A2D', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Leadership</span>
                 <div style={{ width: 32, height: 2, background: '#7B1A2D' }} />
               </div>
-              <h2 style={{ fontSize: 38, fontWeight: 700, color: '#1A1A2A', letterSpacing: '-0.02em' }}>Meet the Team</h2>
+              <h2 style={{ fontSize: 38, fontWeight: 700, color: '#1A1A2A', letterSpacing: '-0.02em' }}>Advisory Board</h2>
             </div>
           </ScrollReveal>
-          <div className="grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 32, maxWidth: 860, margin: '0 auto' }}>
+          <div className="grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 32, maxWidth: 1080, margin: '0 auto' }}>
             {team.map((member, i) => (
               <ScrollReveal key={i} delay={i * 0.1} threshold={0.1}>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ width: 120, height: 120, borderRadius: '50%', overflow: 'hidden', margin: '0 auto 20px', border: '4px solid rgba(123,26,45,0.15)', background: '#ddd' }}>
+                  <div style={{
+                    width: 140, height: 150, borderRadius: '70px 70px 8px 8px', overflow: 'hidden',
+                    margin: '0 auto 20px', border: '4px solid rgba(123,26,45,0.15)', background: '#ddd',
+                  }}>
                     <img src={member.img} alt={member.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                   </div>
-                  <h3 style={{ fontSize: 18, fontWeight: 600, color: '#1A1A2A' }}>{member.name}</h3>
-                  <p style={{ fontSize: 14, color: '#7B1A2D', fontWeight: 500, marginTop: 4 }}>{member.role}</p>
+                  <h3 style={{ fontSize: 17, fontWeight: 700, color: '#1A1A2A' }}>{member.name}</h3>
+                  <p style={{ fontSize: 13, color: '#666', fontWeight: 500, marginTop: 6, lineHeight: 1.6 }}>{member.role}</p>
                 </div>
               </ScrollReveal>
             ))}
