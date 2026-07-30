@@ -344,6 +344,21 @@ export default function NavBar() {
                   {isAdmin && (
                     <>
                       <Link
+                        href="/admin/cms"
+                        onClick={() => setUserMenuOpen(false)}
+                        style={{
+                          display: 'block',
+                          padding: '12px 20px',
+                          fontSize: 14,
+                          color: '#7B1A2D',
+                          fontWeight: 700,
+                          textDecoration: 'none',
+                          background: 'rgba(123,26,45,0.06)',
+                        }}
+                      >
+                        ⚙️ Admin Dashboard
+                      </Link>
+                      <Link
                         href="/admin/grades"
                         onClick={() => setUserMenuOpen(false)}
                         style={{
