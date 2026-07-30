@@ -150,8 +150,9 @@ export default function AboutPage() {
               <ScrollReveal key={i} delay={i * 0.1} threshold={0.1}>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{
-                    width: 140, height: 150, borderRadius: '70px 70px 8px 8px', overflow: 'hidden',
+                    width: 150, height: 150, borderRadius: '50%', overflow: 'hidden',
                     margin: '0 auto 20px', border: '4px solid rgba(123,26,45,0.15)', background: '#ddd',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
                   }}>
                     <img src={member.img} alt={member.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                   </div>
