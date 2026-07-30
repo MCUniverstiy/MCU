@@ -2,9 +2,13 @@ CREATE TABLE IF NOT EXISTS public.shop_orders (id bigint GENERATED ALWAYS AS IDE
 CREATE TABLE IF NOT EXISTS public.shop_order_items (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,order_id bigint NOT NULL REFERENCES public.shop_orders(id) ON DELETE CASCADE,product_id bigint NOT NULL,title varchar(200) NOT NULL,price varchar(50) NOT NULL,quantity integer NOT NULL CHECK(quantity > 0));
 ALTER TABLE public.shop_orders ENABLE ROW LEVEL SECURITY; ALTER TABLE public.shop_order_items ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Anyone can create orders" ON public.shop_orders; CREATE POLICY "Anyone can create orders" ON public.shop_orders FOR INSERT TO anon, authenticated WITH CHECK(true);
-DROP POLICY IF EXISTS "Admins manage orders" ON public.shop_orders; CREATE POLICY "Admins manage orders" ON public.shop_orders FOR SELECT, UPDATE, DELETE TO authenticated USING(public.is_admin()) WITH CHECK(public.is_admin());
+DROP POLICY IF EXISTS "Admins view orders" ON public.shop_orders; CREATE POLICY "Admins view orders" ON public.shop_orders FOR SELECT TO authenticated USING(public.is_admin());
+DROP POLICY IF EXISTS "Admins update orders" ON public.shop_orders; CREATE POLICY "Admins update orders" ON public.shop_orders FOR UPDATE TO authenticated USING(public.is_admin()) WITH CHECK(public.is_admin());
+DROP POLICY IF EXISTS "Admins delete orders" ON public.shop_orders; CREATE POLICY "Admins delete orders" ON public.shop_orders FOR DELETE TO authenticated USING(public.is_admin());
 DROP POLICY IF EXISTS "Anyone can create order items" ON public.shop_order_items; CREATE POLICY "Anyone can create order items" ON public.shop_order_items FOR INSERT TO anon, authenticated WITH CHECK(true);
-DROP POLICY IF EXISTS "Admins manage order items" ON public.shop_order_items; CREATE POLICY "Admins manage order items" ON public.shop_order_items FOR SELECT, UPDATE, DELETE TO authenticated USING(public.is_admin()) WITH CHECK(public.is_admin());
+DROP POLICY IF EXISTS "Admins view order items" ON public.shop_order_items; CREATE POLICY "Admins view order items" ON public.shop_order_items FOR SELECT TO authenticated USING(public.is_admin());
+DROP POLICY IF EXISTS "Admins update order items" ON public.shop_order_items; CREATE POLICY "Admins update order items" ON public.shop_order_items FOR UPDATE TO authenticated USING(public.is_admin()) WITH CHECK(public.is_admin());
+DROP POLICY IF EXISTS "Admins delete order items" ON public.shop_order_items; CREATE POLICY "Admins delete order items" ON public.shop_order_items FOR DELETE TO authenticated USING(public.is_admin());
 GRANT INSERT ON public.shop_orders, public.shop_order_items TO anon, authenticated;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
 -- Use a controlled server-side function so an order and its line items are atomic.
