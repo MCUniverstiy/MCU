@@ -26,6 +26,7 @@ interface EnrollmentInfo {
 interface StudentRow {
   id: string;
   memberid: number | null;
+  student_number: string | null;
   first_name: string | null;
   last_name: string | null;
   email: string | null;
@@ -71,7 +72,7 @@ export default function AdminStudentsPage() {
         const { data, error } = await supabase
           .from('users')
           .select(`
-            id, memberid, first_name, last_name, email, phone_number,
+            id, student_number, memberid, first_name, last_name, email, phone_number,
             area_of_interest, created_at,
             membershiptiers(membname, discountrate),
             enrollments(
@@ -104,6 +105,7 @@ export default function AdminStudentsPage() {
     return (
       `${s.first_name || ''} ${s.last_name || ''}`.toLowerCase().includes(q) ||
       (s.email || '').toLowerCase().includes(q) ||
+      (s.student_number || '').toLowerCase().includes(q) ||
       String(s.memberid || '').includes(q)
     );
   });
@@ -208,7 +210,7 @@ export default function AdminStudentsPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
                 <thead>
                   <tr style={{ background: '#F8F8FA', textAlign: 'left' }}>
-                    {['Member ID', 'Name', 'Email', 'Tier', 'Courses', 'Certificates', 'Total Paid'].map((h) => (
+                    {['Student ID / Member ID', 'Name', 'Email', 'Tier', 'Courses', 'Certificates', 'Total Paid'].map((h) => (
                       <th key={h} style={{ padding: '14px 18px', fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                     ))}
                   </tr>
@@ -224,7 +226,7 @@ export default function AdminStudentsPage() {
                           onClick={() => setExpandedId(expanded ? null : s.id)}
                           style={{ borderTop: '1px solid rgba(0,0,0,0.05)', cursor: 'pointer', background: expanded ? 'rgba(123,26,45,0.03)' : undefined }}
                         >
-                          <td style={{ padding: '14px 18px', fontWeight: 700, color: '#7B1A2D' }}>{s.memberid ? `#${s.memberid}` : '—'}</td>
+                          <td style={{ padding: '14px 18px', fontWeight: 700, color: '#7B1A2D' }}><><strong>{s.student_number || '—'}</strong>{s.memberid && <small style={{ display: 'block', color: '#888' }}>Member #{s.memberid}</small>}</></td>
                           <td style={{ padding: '14px 18px', fontWeight: 600, color: '#1A1A2A' }}>
                             {expanded ? '▾ ' : '▸ '}{`${s.first_name || ''} ${s.last_name || ''}`.trim() || '—'}
                           </td>
