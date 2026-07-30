@@ -6,7 +6,7 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <NavBar />
-      <main style={{ paddingTop: 0 }}>{children}</main>
+      <main id="main-content" style={{ paddingTop: 0 }}>{children}</main>
       <Footer />
     </>
   );

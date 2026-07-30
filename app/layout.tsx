@@ -2,8 +2,17 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "MCU Institute Limited",
+  metadataBase: new URL('https://mcu-three.vercel.app'),
+  title: { default: 'MCU Institute Limited', template: '%s | MCU Institute' },
   description: "Comprehensive wealth management education and professional financial planning programs for tomorrow's leaders.",
+  openGraph: {
+    title: 'MCU Institute Limited',
+    description: 'Wealth management education and professional financial planning programs for tomorrow\'s leaders.',
+    url: 'https://mcu-three.vercel.app',
+    siteName: 'MCU Institute',
+    type: 'website',
+  },
+  twitter: { card: 'summary_large_image', title: 'MCU Institute Limited', description: 'Professional financial education for tomorrow\'s leaders.' },
 };
 
 export default function RootLayout({
@@ -21,7 +30,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body><a href="#main-content" className="skip-link">Skip to main content</a>{children}</body>
     </html>
   );
 }

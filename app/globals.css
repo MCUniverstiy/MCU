@@ -22,6 +22,8 @@ body {
 img { max-width: 100%; display: block; }
 a { text-decoration: none; color: inherit; }
 button { font-family: inherit; cursor: pointer; border: none; background: none; }
+.skip-link { position: absolute; left: -9999px; top: 12px; z-index: 9999; padding: 10px 16px; background: #7B1A2D; color: #fff; border-radius: 6px; }
+.skip-link:focus { left: 12px; }
 
 .container {
   max-width: 1200px;

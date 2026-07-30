@@ -16,10 +16,12 @@ const offices = [
 export default function ContactPage() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '', message: '' });
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitted(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); setError('');
+    const response = await fetch('/api/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+    if (response.ok) setSubmitted(true); else setError('Unable to send your message. Please email us directly.');
   };
 
   const inputStyle: React.CSSProperties = {
