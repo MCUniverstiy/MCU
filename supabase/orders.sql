@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS public.shop_orders (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,customer_name varchar(150) NOT NULL,email varchar(255) NOT NULL,phone varchar(50),address text,notes text,status varchar(30) NOT NULL DEFAULT 'New',total numeric(10,2) NOT NULL DEFAULT 0,created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS public.shop_order_items (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,order_id bigint NOT NULL REFERENCES public.shop_orders(id) ON DELETE CASCADE,product_id bigint NOT NULL,title varchar(200) NOT NULL,price varchar(50) NOT NULL,quantity integer NOT NULL CHECK(quantity > 0));
+ALTER TABLE public.shop_orders ENABLE ROW LEVEL SECURITY; ALTER TABLE public.shop_order_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anyone can create orders" ON public.shop_orders; CREATE POLICY "Anyone can create orders" ON public.shop_orders FOR INSERT WITH CHECK(true);
+DROP POLICY IF EXISTS "Admins manage orders" ON public.shop_orders; CREATE POLICY "Admins manage orders" ON public.shop_orders FOR ALL USING(public.is_admin()) WITH CHECK(public.is_admin());
+DROP POLICY IF EXISTS "Anyone can create order items" ON public.shop_order_items; CREATE POLICY "Anyone can create order items" ON public.shop_order_items FOR INSERT WITH CHECK(true);
+DROP POLICY IF EXISTS "Admins manage order items" ON public.shop_order_items; CREATE POLICY "Admins manage order items" ON public.shop_order_items FOR ALL USING(public.is_admin()) WITH CHECK(public.is_admin());
