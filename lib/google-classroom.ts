@@ -15,6 +15,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 //      GOOGLE_SERVICE_ACCOUNT_KEY + GOOGLE_CLASSROOM_TEACHER_EMAIL
 //   B) Personal Gmail teacher account + OAuth refresh token (quick start)
 //      GOOGLE_OAUTH_CLIENT_ID / _SECRET / _REFRESH_TOKEN
+//   C) Google Apps Script relay (NO Google Cloud Console at all) — a tiny
+//      script.deployed under the teacher Gmail acts as our roster API:
+//      GOOGLE_CLASSROOM_RELAY_URL + GOOGLE_CLASSROOM_RELAY_SECRET
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type ClassroomInviteStatus =
@@ -24,13 +27,60 @@ export type ClassroomInviteStatus =
   | 'already_invited'   // a pending invitation already exists
   | 'failed';           // invite attempt failed — safe to retry (admin endpoint)
 
+const VALID_STATUSES: ClassroomInviteStatus[] = [
+  'enrolled',
+  'invited',
+  'already_enrolled',
+  'already_invited',
+];
+
 const ROSTER_SCOPE = 'https://www.googleapis.com/auth/classroom.rosters';
 const CLASSROOM_API = 'https://classroom.googleapis.com/v1';
 
 export function isClassroomConfigured(): boolean {
   return Boolean(
-    process.env.GOOGLE_SERVICE_ACCOUNT_KEY || process.env.GOOGLE_OAUTH_CLIENT_ID,
+    process.env.GOOGLE_CLASSROOM_RELAY_URL ||
+      process.env.GOOGLE_SERVICE_ACCOUNT_KEY ||
+      process.env.GOOGLE_OAUTH_CLIENT_ID,
   );
+}
+
+/**
+ * Transport C: call the Apps Script relay instead of Google directly.
+ * Google answers web-app calls with a 302 that turns our POST into a GET and
+ * drops the body — so parameters travel in the query string (the script reads
+ * e.parameter, which is populated from the query string on both methods).
+ * Apps Script always answers HTTP 200; errors come back in the JSON body.
+ */
+async function addStudentViaRelay(
+  classroomCourseId: string,
+  studentEmail: string,
+): Promise<ClassroomInviteStatus> {
+  const secret = process.env.GOOGLE_CLASSROOM_RELAY_SECRET;
+  if (!secret) {
+    throw new Error('GOOGLE_CLASSROOM_RELAY_SECRET is required with a relay URL.');
+  }
+  const url = new URL(process.env.GOOGLE_CLASSROOM_RELAY_URL!);
+  url.searchParams.set('secret', secret);
+  url.searchParams.set('courseId', classroomCourseId);
+  url.searchParams.set('email', studentEmail);
+
+  const response = await fetch(url, { method: 'POST', redirect: 'follow' });
+  const data = (await response.json().catch(() => null)) as {
+    status?: string;
+    error?: string;
+  } | null;
+
+  if (!data) {
+    throw new Error(`Classroom relay returned an unreadable response (HTTP ${response.status}).`);
+  }
+  if (data.error) {
+    throw new Error(`Classroom relay: ${data.error.slice(0, 300)}`);
+  }
+  if (!data.status || !VALID_STATUSES.includes(data.status as ClassroomInviteStatus)) {
+    throw new Error(`Classroom relay returned an unknown status: ${String(data.status)}`);
+  }
+  return data.status as ClassroomInviteStatus;
 }
 
 async function getAccessToken(): Promise<string> {
@@ -94,11 +144,16 @@ async function classroomFetch(
 /**
  * Add a student to a class. Direct roster add first; if Google insists on
  * consent (external students), create an invitation they accept by e-mail.
+ * Uses the Apps Script relay when configured (no Google Cloud needed).
  */
 export async function addStudentToClass(
   classroomCourseId: string,
   studentEmail: string,
 ): Promise<ClassroomInviteStatus> {
+  if (process.env.GOOGLE_CLASSROOM_RELAY_URL) {
+    return addStudentViaRelay(classroomCourseId, studentEmail);
+  }
+
   const roster = await classroomFetch(`/courses/${classroomCourseId}/students`, {
     method: 'POST',
     body: JSON.stringify({ userId: studentEmail }),

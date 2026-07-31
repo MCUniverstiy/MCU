@@ -61,7 +61,77 @@ GOOGLE_CLASSROOM_COURSE_MAP={"1":"731234567890","2":"731234567891"}
 
 ## Step 2 — give the site a Google identity
 
-Pick **one** of two paths.
+Pick **one** of three paths. Path C needs **no Google Cloud Console at all**.
+
+### Path C — Google Apps Script relay (no Google Cloud, free, ~10 min) ⭐ easiest
+
+A tiny script running under your institute Gmail does the roster adds;
+the website just calls its URL with a shared secret. Nothing expires.
+
+1. Sign in to your institute Gmail (the one that **owns the three classes**),
+   open <https://script.google.com> → **New project**
+2. Paste the code below, set `SHARED_SECRET` to your random string:
+
+```javascript
+// ── MCU Institute → Google Classroom relay ────────────────────────────
+const SHARED_SECRET = 'PASTE-YOUR-RANDOM-STRING-HERE';
+
+function doPost(e) { return handle(e); }
+function doGet(e)  { return handle(e); } // Google redirects POST→GET; params stay in query
+
+function handle(e) {
+  const p = (e && e.parameter) || {};
+  if (p.secret !== SHARED_SECRET) return out({ error: 'unauthorised' });
+  if (!p.courseId || !p.email)   return out({ error: 'courseId and email required' });
+
+  // 1. Direct roster add (works when teacher + student share a domain)
+  try {
+    Classroom.Courses.Students.create({ userId: p.email }, String(p.courseId));
+    return out({ status: 'enrolled' });
+  } catch (err) {
+    if (/409|already/i.test(String(err))) return out({ status: 'already_enrolled' });
+  }
+  // 2. External students → invitation e-mail they must accept
+  try {
+    Classroom.Invitations.create({ userId: p.email, courseId: String(p.courseId), role: 'STUDENT' });
+    return out({ status: 'invited' });
+  } catch (err2) {
+    if (/409|already/i.test(String(err2))) return out({ status: 'already_invited' });
+    return out({ error: String(err2).slice(0, 300) });
+  }
+}
+
+function out(o) {
+  return ContentService
+    .createTextOutput(JSON.stringify(o))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+```
+
+3. **Enable the Classroom service:** left sidebar → **Services** `+` →
+   **Google Classroom API** → Add (one click — no Cloud Console involved)
+4. **Deploy → New deployment → type: Web app**:
+   - Execute as: **Me**
+   - Who has access: **Anyone**
+   - Click **Deploy** → **Authorize access** → choose your Gmail →
+     **Advanced** → **Go to … (unsafe)** (it's your own script) → **Allow**
+5. Copy the **Web app URL** (ends with `/exec`) → env vars:
+
+```
+GOOGLE_CLASSROOM_RELAY_URL=https://script.google.com/macros/s/AKfy.../exec
+GOOGLE_CLASSROOM_RELAY_SECRET=<the same random string as in the script>
+```
+
+Notes:
+- "Anyone" sounds scary but the URL is unguessable *and* the secret is
+  required on every call — and "Execute as Me" means the script can only
+  touch classes your account owns.
+- Editing the code later requires **Manage deployments → new version** for
+  changes to go live. Initial deploy is enough.
+- Roster result statuses match the native paths, so the webhook, retry
+  endpoint and enrollment tracking work identically.
+
+---
 
 ### Path A — Google Workspace (recommended, ~US$6/mo for 1 teacher seat)
 
