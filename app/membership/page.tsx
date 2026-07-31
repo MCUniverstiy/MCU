@@ -93,11 +93,8 @@ export default function MembershipPage() {
   const [selectedTier, setSelectedTier] = useState<TierItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
-  const [cardNumber, setCardNumber] = useState('4242 •••• •••• 4242');
-  const [cardExpiry, setCardExpiry] = useState('12/28');
-  const [cardCvc, setCardCvc] = useState('123');
-  const [cardName, setCardName] = useState('Member Account');
+  const [checkoutError, setCheckoutError] = useState('');
+  const [checkoutNotice, setCheckoutNotice] = useState<'success' | 'cancelled' | null>(null);
 
   useEffect(() => {
     async function loadTiersAndUser() {
@@ -109,16 +106,13 @@ export default function MembershipPage() {
         if (user) {
           const { data: profile } = await supabase
             .from('users')
-            .select('tierid, memberid, first_name, last_name')
+            .select('tierid, memberid')
             .eq('id', user.id)
             .single();
 
           if (profile) {
             if (profile.tierid) setCurrentTierid(profile.tierid);
             if (profile.memberid) setMemberId(profile.memberid);
-            if (profile.first_name || profile.last_name) {
-              setCardName(`${profile.first_name || ''} ${profile.last_name || ''}`.trim());
-            }
           }
         }
 
@@ -130,7 +124,12 @@ export default function MembershipPage() {
         if (!error && dbTiers && dbTiers.length > 0) {
           const mapped: TierItem[] = dbTiers.map((t: Record<string, unknown>, idx: number) => {
             const discount = Number(t.discountrate) || 0;
-            const priceVal = idx === 0 ? 1200 : idx === 1 ? 3800 : 8800;
+            // Price comes from the membershiptiers.price column (see supabase/stripe.sql);
+            // legacy hardcoded values remain as a fallback for unmigrated databases.
+            const dbPrice = t.price !== null && t.price !== undefined && !Number.isNaN(Number(t.price))
+              ? Number(t.price)
+              : null;
+            const priceVal = dbPrice ?? (idx === 0 ? 1200 : idx === 1 ? 3800 : 8800);
             return {
               tierid: t.tierid as number,
               name: (t.membname as string) || (t.tiers as string) || `Tier ${t.tierid}`,
@@ -161,6 +160,44 @@ export default function MembershipPage() {
     loadTiersAndUser();
   }, []);
 
+  // Handle the redirect back from Stripe Checkout.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('checkout');
+    if (result !== 'success' && result !== 'cancelled') return;
+
+    window.history.replaceState({}, '', '/membership');
+    const noticeTimer = setTimeout(() => setCheckoutNotice(result), 0);
+
+    if (result !== 'success') return () => clearTimeout(noticeTimer);
+
+    // The webhook that activates the plan lands within moments of the
+    // redirect — poll briefly so the "✓ Your Active Plan" badge updates.
+    const supabase = createClient();
+    let attempts = 0;
+    const timer = setInterval(async () => {
+      attempts += 1;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('tierid, memberid')
+          .eq('id', user.id)
+          .single();
+        if (profile) {
+          if (profile.tierid) setCurrentTierid(profile.tierid);
+          if (profile.memberid) setMemberId(profile.memberid);
+        }
+      }
+      if (attempts >= 5) clearInterval(timer);
+    }, 2000);
+
+    return () => {
+      clearTimeout(noticeTimer);
+      clearInterval(timer);
+    };
+  }, []);
+
   const handleOpenPaymentModal = async (tier: TierItem) => {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -171,45 +208,38 @@ export default function MembershipPage() {
     }
 
     setSelectedTier(tier);
-    setPaymentSuccess(false);
+    setCheckoutError('');
     setIsModalOpen(true);
   };
 
-  const handleProcessPayment = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleStartCheckout = async () => {
     if (!selectedTier) return;
 
     setIsProcessing(true);
+    setCheckoutError('');
 
     try {
-      // Simulate real bank processing delay
-      await new Promise((res) => setTimeout(res, 1500));
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'membership', tierid: selectedTier.tierid }),
+      });
+      const data = await res.json();
 
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) throw new Error('Not authenticated');
-
-      // Update users table in Supabase.
-      // The DB trigger assigns a memberid automatically on first join,
-      // so we select it back to display the new membership number.
-      const { data: updated, error } = await supabase
-        .from('users')
-        .update({ tierid: selectedTier.tierid })
-        .eq('id', user.id)
-        .select('memberid')
-        .single();
-
-      if (error) {
-        throw error;
+      if (res.ok && data.url) {
+        // Hand over to Stripe's hosted checkout — the tier is activated by
+        // the webhook after the payment really clears.
+        window.location.href = data.url;
+        return;
       }
 
-      if (updated?.memberid) setMemberId(updated.memberid);
-      setCurrentTierid(selectedTier.tierid);
-      setPaymentSuccess(true);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      alert('Payment execution failed: ' + msg);
+      setCheckoutError(
+        data.error === 'already_on_tier'
+          ? 'This plan is already active on your account.'
+          : data.error || 'Unable to start checkout. Please try again.',
+      );
+    } catch {
+      setCheckoutError('Network error — please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -228,6 +258,18 @@ export default function MembershipPage() {
 
       <section style={{ padding: '100px 0', background: '#fff' }}>
         <div className="container">
+          {checkoutNotice && (
+            <div style={{
+              maxWidth: 640, margin: '0 auto 40px', padding: '16px 22px', borderRadius: 14,
+              background: checkoutNotice === 'success' ? 'rgba(46,196,182,0.12)' : 'rgba(229,165,46,0.12)',
+              border: `1px solid ${checkoutNotice === 'success' ? 'rgba(46,196,182,0.4)' : 'rgba(229,165,46,0.4)'}`,
+              fontSize: 14, color: '#1A1A2A', lineHeight: 1.6,
+            }}>
+              {checkoutNotice === 'success'
+                ? '✅ Payment received! Your membership is being activated — your new plan will show as active within a few seconds.'
+                : 'Checkout was cancelled — no payment was taken. You can join anytime.'}
+            </div>
+          )}
           <ScrollReveal>
             <div style={{ textAlign: 'center', marginBottom: 64 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'center', marginBottom: 12 }}>
@@ -260,7 +302,7 @@ export default function MembershipPage() {
                     }}>
                       {isCurrent && (
                         <div style={{ background: '#2EC4B6', textAlign: 'center', padding: '8px', fontSize: 12, fontWeight: 700, color: '#fff', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                          ✓ Your Active Plan
+                          ✓ Your Active Plan{memberId ? ` · Member #${memberId}` : ''}
                         </div>
                       )}
                       {!isCurrent && tier.highlight && (
@@ -308,7 +350,7 @@ export default function MembershipPage() {
         </div>
       </section>
 
-      {/* MOCK PAYMENT MODAL */}
+      {/* STRIPE MEMBERSHIP CHECKOUT MODAL */}
       {isModalOpen && selectedTier && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 9999,
@@ -330,157 +372,70 @@ export default function MembershipPage() {
               ✕
             </button>
 
-            {paymentSuccess ? (
-              <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                <div style={{
-                  width: 72, height: 72, borderRadius: '50%', background: 'rgba(46,196,182,0.15)',
-                  color: '#2EC4B6', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 36, margin: '0 auto 20px',
-                }}>
-                  ✓
-                </div>
-                <h3 style={{ fontSize: 24, fontWeight: 700, color: '#1A1A2A', marginBottom: 10 }}>
-                  Payment Successful!
-                </h3>
-                <p style={{ fontSize: 15, color: '#666', lineHeight: 1.6, marginBottom: 24 }}>
-                  Congratulations! You are now officially upgraded to the <strong>{selectedTier.name} Membership Tier</strong>.
-                </p>
-
-                <div style={{
-                  background: '#F8F8FA', borderRadius: 12, padding: '16px 20px', textAlign: 'left',
-                  fontSize: 13, color: '#444', marginBottom: 28, border: '1px solid #EEE'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span>Member ID:</span>
-                    <strong>#{memberId ?? '—'}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span>Tier:</span>
-                    <strong>{selectedTier.name} (Tier {selectedTier.tierid})</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span>Status:</span>
-                    <strong style={{ color: '#2EC4B6' }}>Saved to Supabase `users.tierid`</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Course Discount:</span>
-                    <strong>{(selectedTier.discountrate * 100).toFixed(0)}% Off</strong>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  style={{
-                    width: '100%', padding: '14px', borderRadius: 30, background: '#7B1A2D',
-                    color: '#fff', fontSize: 15, fontWeight: 600, border: 'none', cursor: 'pointer',
-                  }}
-                >
-                  Return to Dashboard
-                </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: 10, background: 'rgba(123,26,45,0.1)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7B1A2D',
+                fontWeight: 700, fontSize: 18,
+              }}>
+                🔒
               </div>
-            ) : (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                  <div style={{
-                    width: 40, height: 40, borderRadius: 10, background: 'rgba(123,26,45,0.1)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7B1A2D',
-                    fontWeight: 700, fontSize: 18,
-                  }}>
-                    💳
-                  </div>
-                  <div>
-                    <h3 style={{ fontSize: 20, fontWeight: 700, color: '#1A1A2A' }}>Mock Checkout</h3>
-                    <p style={{ fontSize: 13, color: '#666' }}>Testing Supabase `membershiptiers` Integration</p>
-                  </div>
+              <div>
+                <h3 style={{ fontSize: 20, fontWeight: 700, color: '#1A1A2A' }}>Secure Checkout</h3>
+                <p style={{ fontSize: 13, color: '#666' }}>Powered by Stripe · your plan activates once payment clears</p>
+              </div>
+            </div>
+
+            <div style={{
+              background: '#F8F8FA', borderRadius: 16, padding: '16px 20px', marginBottom: 24,
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #EEE',
+            }}>
+              <div>
+                <div style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>SELECTED TIER</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#1A1A2A', marginTop: 2 }}>
+                  {selectedTier.name} Plan
                 </div>
-
-                <div style={{
-                  background: '#F8F8FA', borderRadius: 16, padding: '16px 20px', marginBottom: 24,
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #EEE',
-                }}>
-                  <div>
-                    <div style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>SELECTED TIER</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: '#1A1A2A', marginTop: 2 }}>
-                      {selectedTier.name} Plan
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: '#7B1A2D' }}>
-                      {selectedTier.priceDisplay}
-                    </div>
-                    <div style={{ fontSize: 11, color: '#2EC4B6', fontWeight: 600 }}>
-                      {(selectedTier.discountrate * 100).toFixed(0)}% Course Discount
-                    </div>
-                  </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#7B1A2D' }}>
+                  {selectedTier.priceDisplay}
                 </div>
+                <div style={{ fontSize: 11, color: '#2EC4B6', fontWeight: 600 }}>
+                  {(selectedTier.discountrate * 100).toFixed(0)}% Course Discount
+                </div>
+              </div>
+            </div>
 
-                <form onSubmit={handleProcessPayment} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Cardholder Name</label>
-                    <input
-                      type="text" required value={cardName} onChange={(e) => setCardName(e.target.value)}
-                      style={{
-                        width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 10,
-                        border: '1.5px solid #DDD', outline: 'none', background: '#fff',
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Card Number (Mock Test Card)</label>
-                    <input
-                      type="text" required value={cardNumber} onChange={(e) => setCardNumber(e.target.value)}
-                      style={{
-                        width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 10,
-                        border: '1.5px solid #DDD', outline: 'none', background: '#fff',
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Expiry Date</label>
-                      <input
-                        type="text" required value={cardExpiry} onChange={(e) => setCardExpiry(e.target.value)}
-                        style={{
-                          width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 10,
-                          border: '1.5px solid #DDD', outline: 'none', background: '#fff',
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>CVC</label>
-                      <input
-                        type="text" required value={cardCvc} onChange={(e) => setCardCvc(e.target.value)}
-                        style={{
-                          width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 10,
-                          border: '1.5px solid #DDD', outline: 'none', background: '#fff',
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div style={{
-                    fontSize: 12, color: '#888', background: 'rgba(229,165,46,0.1)', padding: '10px 14px',
-                    borderRadius: 8, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8,
-                  }}>
-                    <span>💡</span>
-                    <span>This is a <strong>mock payment sandbox</strong>. No real credit card will be charged.</span>
-                  </div>
-
-                  <button
-                    type="submit" disabled={isProcessing}
-                    style={{
-                      width: '100%', padding: '15px', borderRadius: 30, fontSize: 15, fontWeight: 600,
-                      background: isProcessing ? '#999' : '#7B1A2D', color: '#fff', border: 'none',
-                      cursor: isProcessing ? 'not-allowed' : 'pointer', marginTop: 12, transition: 'all 0.2s',
-                    }}
-                  >
-                    {isProcessing ? 'Processing Payment & Saving to Table...' : `Pay ${selectedTier.priceDisplay} & Activate Plan`}
-                  </button>
-                </form>
-              </>
+            {checkoutError && (
+              <div style={{
+                fontSize: 13, color: '#8A1C1C', background: 'rgba(196,30,58,0.08)', padding: '12px 14px',
+                borderRadius: 10, marginBottom: 16, border: '1px solid rgba(196,30,58,0.25)', lineHeight: 1.5,
+              }}>
+                {checkoutError}
+              </div>
             )}
+
+            <button
+              onClick={handleStartCheckout}
+              disabled={isProcessing}
+              style={{
+                width: '100%', padding: '15px', borderRadius: 30, fontSize: 15, fontWeight: 600,
+                background: isProcessing ? '#999' : '#7B1A2D', color: '#fff', border: 'none',
+                cursor: isProcessing ? 'not-allowed' : 'pointer', transition: 'all 0.2s',
+              }}
+            >
+              {isProcessing
+                ? 'Redirecting to Stripe…'
+                : `Pay ${selectedTier.priceDisplay} Securely →`}
+            </button>
+
+            <div style={{
+              fontSize: 12, color: '#888', background: 'rgba(46,196,182,0.08)', padding: '10px 14px',
+              borderRadius: 8, marginTop: 14, display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <span>🛡️</span>
+              <span>You&apos;ll be handed over to <strong>Stripe Checkout</strong> — any tax is calculated from your billing address, and your card details never touch our servers.</span>
+            </div>
           </div>
         </div>
       )}

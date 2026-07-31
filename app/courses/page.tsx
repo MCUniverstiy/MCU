@@ -81,19 +81,15 @@ export default function CoursesPage() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [loading, setLoading] = useState(true);
 
-  // Enrollment / mock payment state
+  // Enrollment / Stripe checkout state
   const [selectedCourse, setSelectedCourse] = useState<CourseItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
-  const [enrollmentId, setEnrollmentId] = useState<number | null>(null);
+  const [checkoutError, setCheckoutError] = useState('');
+  const [checkoutNotice, setCheckoutNotice] = useState<'success' | 'cancelled' | null>(null);
   const [enrolledCourseIds, setEnrolledCourseIds] = useState<number[]>([]);
   const [discountRate, setDiscountRate] = useState(0);
   const [tierName, setTierName] = useState<string | null>(null);
-  const [cardNumber, setCardNumber] = useState('4242 •••• •••• 4242');
-  const [cardExpiry, setCardExpiry] = useState('12/28');
-  const [cardCvc, setCardCvc] = useState('123');
-  const [cardName, setCardName] = useState('Student Account');
 
   useEffect(() => {
     async function loadCourses() {
@@ -157,14 +153,11 @@ export default function CoursesPage() {
 
         const { data: profile } = await supabase
           .from('users')
-          .select('first_name, last_name, membershiptiers(membname, tiers, discountrate)')
+          .select('membershiptiers(membname, tiers, discountrate)')
           .eq('id', user.id)
           .single();
 
         if (profile) {
-          if (profile.first_name || profile.last_name) {
-            setCardName(`${profile.first_name || ''} ${profile.last_name || ''}`.trim());
-          }
           const tierObj = profile.membershiptiers as unknown as { membname?: string; tiers?: string; discountrate?: number } | null;
           if (tierObj) {
             setDiscountRate(Number(tierObj.discountrate) || 0);
@@ -188,6 +181,42 @@ export default function CoursesPage() {
     loadUserContext();
   }, []);
 
+  // Handle the redirect back from Stripe Checkout.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('checkout');
+    if (result !== 'success' && result !== 'cancelled') return;
+
+    window.history.replaceState({}, '', '/courses');
+    const noticeTimer = setTimeout(() => setCheckoutNotice(result), 0);
+
+    if (result !== 'success') return () => clearTimeout(noticeTimer);
+
+    // The webhook that activates the enrollment lands within moments of the
+    // redirect — poll briefly so the "✓ Enrolled" badge appears on its own.
+    const supabase = createClient();
+    let attempts = 0;
+    const timer = setInterval(async () => {
+      attempts += 1;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: enrollments } = await supabase
+          .from('enrollments')
+          .select('courseid')
+          .eq('user_id', user.id);
+        if (enrollments) {
+          setEnrolledCourseIds(enrollments.map((e: { courseid: number }) => e.courseid));
+        }
+      }
+      if (attempts >= 5) clearInterval(timer);
+    }, 2000);
+
+    return () => {
+      clearTimeout(noticeTimer);
+      clearInterval(timer);
+    };
+  }, []);
+
   const getFinalPrice = (price?: number) =>
     price !== undefined ? Math.round(price * (1 - discountRate) * 100) / 100 : undefined;
 
@@ -201,47 +230,46 @@ export default function CoursesPage() {
     }
 
     setSelectedCourse(course);
-    setPaymentSuccess(false);
-    setEnrollmentId(null);
+    setCheckoutError('');
     setIsModalOpen(true);
   };
 
-  const handleProcessPayment = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleStartCheckout = async () => {
     if (!selectedCourse?.courseid) return;
 
     setIsProcessing(true);
+    setCheckoutError('');
 
     try {
-      // Simulate real bank processing delay
-      await new Promise((res) => setTimeout(res, 1500));
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'course', courseid: selectedCourse.courseid }),
+      });
+      const data = await res.json();
 
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) throw new Error('Not authenticated');
-
-      // Insert enrollment record linked by courseid + user UUID
-      const { data: inserted, error } = await supabase
-        .from('enrollments')
-        .insert({
-          user_id: user.id,
-          courseid: selectedCourse.courseid,
-          paymentstatus: 'Paid',
-        })
-        .select('enrollmentid')
-        .single();
-
-      if (error) {
-        throw error;
+      if (res.ok && data.url) {
+        // Hand over to Stripe's hosted checkout — enrollment is activated by
+        // the webhook after the payment really clears.
+        window.location.href = data.url;
+        return;
       }
 
-      if (inserted?.enrollmentid) setEnrollmentId(inserted.enrollmentid);
-      setEnrolledCourseIds((prev) => [...prev, selectedCourse.courseid!]);
-      setPaymentSuccess(true);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      alert('Payment execution failed: ' + msg);
+      if (res.ok && data.free) {
+        // Free course: enrolled directly, no payment needed.
+        setEnrolledCourseIds((prev) => [...prev, selectedCourse.courseid!]);
+        setIsModalOpen(false);
+        setCheckoutNotice('success');
+        return;
+      }
+
+      setCheckoutError(
+        data.error === 'already_enrolled'
+          ? 'You are already enrolled in this course.'
+          : data.error || 'Unable to start checkout. Please try again.',
+      );
+    } catch {
+      setCheckoutError('Network error — please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -264,6 +292,18 @@ export default function CoursesPage() {
 
       <section style={{ padding: '100px 0', background: '#fff' }}>
         <div className="container">
+          {checkoutNotice && (
+            <div style={{
+              maxWidth: 640, margin: '0 auto 40px', padding: '16px 22px', borderRadius: 14,
+              background: checkoutNotice === 'success' ? 'rgba(46,196,182,0.12)' : 'rgba(229,165,46,0.12)',
+              border: `1px solid ${checkoutNotice === 'success' ? 'rgba(46,196,182,0.4)' : 'rgba(229,165,46,0.4)'}`,
+              fontSize: 14, color: '#1A1A2A', lineHeight: 1.6,
+            }}>
+              {checkoutNotice === 'success'
+                ? '✅ Payment received! Your enrollment is being activated — the “✓ Enrolled” badge will appear on your course within a few seconds. If this course runs on Google Classroom, an invitation email is on its way too — accept it to access your class materials.'
+                : 'Checkout was cancelled — no payment was taken. You can enroll anytime.'}
+            </div>
+          )}
           <ScrollReveal>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 56 }}>
               {categories.map((cat) => (
@@ -382,7 +422,7 @@ export default function CoursesPage() {
         </div>
       </section>
 
-      {/* MOCK COURSE PAYMENT MODAL */}
+      {/* STRIPE COURSE CHECKOUT MODAL */}
       {isModalOpen && selectedCourse && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 9999,
@@ -404,171 +444,77 @@ export default function CoursesPage() {
               ✕
             </button>
 
-            {paymentSuccess ? (
-              <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                <div style={{
-                  width: 72, height: 72, borderRadius: '50%', background: 'rgba(46,196,182,0.15)',
-                  color: '#2EC4B6', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 36, margin: '0 auto 20px',
-                }}>
-                  ✓
-                </div>
-                <h3 style={{ fontSize: 24, fontWeight: 700, color: '#1A1A2A', marginBottom: 10 }}>
-                  Enrollment Successful!
-                </h3>
-                <p style={{ fontSize: 15, color: '#666', lineHeight: 1.6, marginBottom: 24 }}>
-                  You are now enrolled in <strong>{selectedCourse.title}</strong>.
-                </p>
-
-                <div style={{
-                  background: '#F8F8FA', borderRadius: 12, padding: '16px 20px', textAlign: 'left',
-                  fontSize: 13, color: '#444', marginBottom: 28, border: '1px solid #EEE'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span>Enrollment ID:</span>
-                    <strong>#{enrollmentId ?? '—'}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span>Course ID:</span>
-                    <strong>#{selectedCourse.courseid}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span>Payment Status:</span>
-                    <strong style={{ color: '#2EC4B6' }}>Paid — saved to `enrollments`</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Amount Paid:</span>
-                    <strong>
-                      HK${getFinalPrice(selectedCourse.price)?.toLocaleString()}
-                      {discountRate > 0 && (
-                        <span style={{ color: '#2EC4B6' }}> ({(discountRate * 100).toFixed(0)}% off)</span>
-                      )}
-                    </strong>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  style={{
-                    width: '100%', padding: '14px', borderRadius: 30, background: '#7B1A2D',
-                    color: '#fff', fontSize: 15, fontWeight: 600, border: 'none', cursor: 'pointer',
-                  }}
-                >
-                  Continue Browsing Courses
-                </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: 10, background: 'rgba(123,26,45,0.1)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7B1A2D',
+                fontWeight: 700, fontSize: 18,
+              }}>
+                🔒
               </div>
-            ) : (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                  <div style={{
-                    width: 40, height: 40, borderRadius: 10, background: 'rgba(123,26,45,0.1)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7B1A2D',
-                    fontWeight: 700, fontSize: 18,
-                  }}>
-                    💳
-                  </div>
-                  <div>
-                    <h3 style={{ fontSize: 20, fontWeight: 700, color: '#1A1A2A' }}>Course Checkout</h3>
-                    <p style={{ fontSize: 13, color: '#666' }}>Enrollment saved to Supabase `enrollments`</p>
-                  </div>
+              <div>
+                <h3 style={{ fontSize: 20, fontWeight: 700, color: '#1A1A2A' }}>Secure Checkout</h3>
+                <p style={{ fontSize: 13, color: '#666' }}>Powered by Stripe · enrollment activates once payment clears</p>
+              </div>
+            </div>
+
+            <div style={{
+              background: '#F8F8FA', borderRadius: 16, padding: '16px 20px', marginBottom: 24,
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #EEE',
+            }}>
+              <div style={{ paddingRight: 12 }}>
+                <div style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>SELECTED COURSE</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#1A1A2A', marginTop: 2 }}>
+                  {selectedCourse.title}
                 </div>
-
-                <div style={{
-                  background: '#F8F8FA', borderRadius: 16, padding: '16px 20px', marginBottom: 24,
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #EEE',
-                }}>
-                  <div style={{ paddingRight: 12 }}>
-                    <div style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>SELECTED COURSE</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#1A1A2A', marginTop: 2 }}>
-                      {selectedCourse.title}
-                    </div>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                {discountRate > 0 && selectedCourse.price !== undefined && (
+                  <div style={{ fontSize: 12, color: '#999', textDecoration: 'line-through' }}>
+                    HK${selectedCourse.price.toLocaleString()}
                   </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    {discountRate > 0 && selectedCourse.price !== undefined && (
-                      <div style={{ fontSize: 12, color: '#999', textDecoration: 'line-through' }}>
-                        HK${selectedCourse.price.toLocaleString()}
-                      </div>
-                    )}
-                    <div style={{ fontSize: 18, fontWeight: 700, color: '#7B1A2D' }}>
-                      HK${getFinalPrice(selectedCourse.price)?.toLocaleString()}
-                    </div>
-                    {discountRate > 0 && (
-                      <div style={{ fontSize: 11, color: '#2EC4B6', fontWeight: 600 }}>
-                        {tierName} Member −{(discountRate * 100).toFixed(0)}%
-                      </div>
-                    )}
-                  </div>
+                )}
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#7B1A2D' }}>
+                  HK${getFinalPrice(selectedCourse.price)?.toLocaleString()}
                 </div>
-
-                <form onSubmit={handleProcessPayment} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Cardholder Name</label>
-                    <input
-                      type="text" required value={cardName} onChange={(e) => setCardName(e.target.value)}
-                      style={{
-                        width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 10,
-                        border: '1.5px solid #DDD', outline: 'none', background: '#fff',
-                      }}
-                    />
+                {discountRate > 0 && (
+                  <div style={{ fontSize: 11, color: '#2EC4B6', fontWeight: 600 }}>
+                    {tierName} Member −{(discountRate * 100).toFixed(0)}%
                   </div>
+                )}
+              </div>
+            </div>
 
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Card Number (Mock Test Card)</label>
-                    <input
-                      type="text" required value={cardNumber} onChange={(e) => setCardNumber(e.target.value)}
-                      style={{
-                        width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 10,
-                        border: '1.5px solid #DDD', outline: 'none', background: '#fff',
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Expiry Date</label>
-                      <input
-                        type="text" required value={cardExpiry} onChange={(e) => setCardExpiry(e.target.value)}
-                        style={{
-                          width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 10,
-                          border: '1.5px solid #DDD', outline: 'none', background: '#fff',
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>CVC</label>
-                      <input
-                        type="text" required value={cardCvc} onChange={(e) => setCardCvc(e.target.value)}
-                        style={{
-                          width: '100%', padding: '12px 14px', fontSize: 14, borderRadius: 10,
-                          border: '1.5px solid #DDD', outline: 'none', background: '#fff',
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div style={{
-                    fontSize: 12, color: '#888', background: 'rgba(229,165,46,0.1)', padding: '10px 14px',
-                    borderRadius: 8, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8,
-                  }}>
-                    <span>💡</span>
-                    <span>This is a <strong>mock payment sandbox</strong>. No real credit card will be charged.</span>
-                  </div>
-
-                  <button
-                    type="submit" disabled={isProcessing}
-                    style={{
-                      width: '100%', padding: '15px', borderRadius: 30, fontSize: 15, fontWeight: 600,
-                      background: isProcessing ? '#999' : '#7B1A2D', color: '#fff', border: 'none',
-                      cursor: isProcessing ? 'not-allowed' : 'pointer', marginTop: 12, transition: 'all 0.2s',
-                    }}
-                  >
-                    {isProcessing
-                      ? 'Processing Payment & Enrolling...'
-                      : `Pay HK$${getFinalPrice(selectedCourse.price)?.toLocaleString() ?? ''} & Enroll`}
-                  </button>
-                </form>
-              </>
+            {checkoutError && (
+              <div style={{
+                fontSize: 13, color: '#8A1C1C', background: 'rgba(196,30,58,0.08)', padding: '12px 14px',
+                borderRadius: 10, marginBottom: 16, border: '1px solid rgba(196,30,58,0.25)', lineHeight: 1.5,
+              }}>
+                {checkoutError}
+              </div>
             )}
+
+            <button
+              onClick={handleStartCheckout}
+              disabled={isProcessing}
+              style={{
+                width: '100%', padding: '15px', borderRadius: 30, fontSize: 15, fontWeight: 600,
+                background: isProcessing ? '#999' : '#7B1A2D', color: '#fff', border: 'none',
+                cursor: isProcessing ? 'not-allowed' : 'pointer', transition: 'all 0.2s',
+              }}
+            >
+              {isProcessing
+                ? 'Redirecting to Stripe…'
+                : `Pay HK$${getFinalPrice(selectedCourse.price)?.toLocaleString() ?? ''} Securely →`}
+            </button>
+
+            <div style={{
+              fontSize: 12, color: '#888', background: 'rgba(46,196,182,0.08)', padding: '10px 14px',
+              borderRadius: 8, marginTop: 14, display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <span>🛡️</span>
+              <span>You&apos;ll be handed over to <strong>Stripe Checkout</strong> — any tax is calculated from your billing address, and your card details never touch our servers.</span>
+            </div>
           </div>
         </div>
       )}

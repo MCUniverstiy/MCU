@@ -9,6 +9,7 @@
 ## 🔴 CRITICAL ISSUES (Fix Immediately)
 
 ### 1. No Real Payment Processing
+> ✅ **FIXED (31 Jul 2026):** Real Stripe checkout with Managed Payments — see `STRIPE-SETUP.md`. Enrollments/memberships are now activated only by the `checkout.session.completed` webhook after real payment; mock card forms removed.
 - **Location:** `/courses` (line 150+), `/membership` (line 180+)
 - **Problem:** Payment forms are mock/sandbox only. Card numbers are hardcoded placeholders (`4242 •••• •••• 4242`). No real money moves.
 - **Impact:** Students can't actually pay for courses or memberships
@@ -116,6 +117,7 @@
 ---
 
 ### 10. Membership Prices Hardcoded
+> ✅ **FIXED (31 Jul 2026):** `price` column added to `membershiptiers` via `supabase/stripe.sql`; the page reads prices from the database.
 - **Location:** `/membership` (line 110-120)
 - **Problem:** Prices (HK$1,200 / HK$3,800 / HK$8,800) are hardcoded in fallback, not in database
 - **Impact:** Can't change prices without code deploy
@@ -149,6 +151,7 @@
 ---
 
 ### 13. No Duplicate Enrollment Check
+> ✅ **FIXED (31 Jul 2026):** checkout API rejects duplicates (409) and `enrollments(user_id, courseid)` now has a UNIQUE index (`supabase/stripe.sql`).
 - **Location:** `/courses` (line 150-170)
 - **Problem:** Students can enroll in same course multiple times
 - **Impact:** Duplicate enrollments, multiple charges
