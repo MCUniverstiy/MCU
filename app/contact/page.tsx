@@ -16,12 +16,32 @@ const offices = [
 export default function ContactPage() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '', message: '' });
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setError('');
-    const response = await fetch('/api/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
-    if (response.ok) setSubmitted(true); else setError('Unable to send your message. Please email us directly.');
+    e.preventDefault();
+    setError('');
+    setSending(true);
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const data = await response.json().catch(() => ({})) as { error?: string };
+
+      if (response.ok) {
+        setSubmitted(true);
+      } else {
+        setError(data.error || 'Unable to send your message. Please email us directly.');
+      }
+    } catch {
+      setError('Network error — please try again.');
+    } finally {
+      setSending(false);
+    }
   };
 
   const inputStyle: React.CSSProperties = {
@@ -101,8 +121,25 @@ export default function ContactPage() {
                     <label style={labelStyle}>Message *</label>
                     <textarea required rows={6} placeholder="Tell us how we can help..." style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6 }} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} onFocus={(e) => { e.target.style.borderColor = '#7B1A2D'; }} onBlur={(e) => { e.target.style.borderColor = 'rgba(0,0,0,0.12)'; }} />
                   </div>
-                  <button type="submit" className="btn-gold" style={{ justifyContent: 'center', border: 'none', cursor: 'pointer' }}>
-                    Send Message →
+                  {error && (
+                    <div style={{
+                      padding: '12px 14px', borderRadius: 10, color: '#8A1C1C',
+                      background: 'rgba(196,30,58,0.08)', border: '1px solid rgba(196,30,58,0.25)',
+                      fontSize: 14, lineHeight: 1.5,
+                    }}>
+                      {error}
+                    </div>
+                  )}
+                  <button
+                    type="submit"
+                    className="btn-gold"
+                    disabled={sending}
+                    style={{
+                      justifyContent: 'center', border: 'none',
+                      cursor: sending ? 'not-allowed' : 'pointer', opacity: sending ? 0.7 : 1,
+                    }}
+                  >
+                    {sending ? 'Sending…' : 'Send Message'}
                   </button>
                 </form>
               )}
