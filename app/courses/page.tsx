@@ -19,46 +19,19 @@ interface CourseItem {
   instructorName?: string;
 }
 
-const fallbackCourses: CourseItem[] = [
-  {
-    cat: 'Financial Planning',
-    img: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800&q=80',
-    title: 'Professional Financial Planning Program',
-    level: 'Foundation – Advanced',
-    duration: '12 weeks',
-    format: 'Hybrid',
-    desc: 'A comprehensive curriculum covering all aspects of personal and corporate financial planning, aligned with CFP global standards.',
-  },
-  {
-    cat: 'Wealth Management',
-    img: 'https://images.unsplash.com/photo-1551836022-4c4c79ecde51?w=800&q=80',
-    title: 'CEO Wealth Management Program',
-    level: 'Executive',
-    duration: '8 weeks',
-    format: 'Classroom',
-    desc: 'Tailored for CEOs and senior executives who need a strategic perspective on personal and corporate wealth preservation.',
-  },
-  {
-    cat: 'Family Office',
-    img: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=800&q=80',
-    title: 'Family Office Wealth Management Program',
-    level: 'Intermediate – Advanced',
-    duration: '16 weeks',
-    format: 'Hybrid',
-    desc: 'Deep-dive into family office structures, governance models, investment policy statements, and succession planning.',
-  },
-  {
-    cat: 'Family Office',
-    img: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=800&q=80',
-    title: 'Professional Family Office Consultant Program',
-    level: 'Advanced',
-    duration: '20 weeks',
-    format: 'Online',
-    desc: 'For professional advisors serving family offices — covers legal, tax, investment, and relationship management complexities.',
-  },
-];
+const defaultCategories = ['All', 'Financial Planning', 'Wealth Management', 'Family Office', 'Executive'];
 
-const categories = ['All', 'Financial Planning', 'Wealth Management', 'Family Office', 'Executive'];
+type SortOption = 'recommended' | 'name-asc' | 'price-asc' | 'price-desc';
+
+function deriveCategories(courses: CourseItem[]) {
+  return ['All', ...new Set(courses.map((course) => course.cat).filter(Boolean))];
+}
+
+function compareCoursePrices(a: CourseItem, b: CourseItem, direction: 'asc' | 'desc') {
+  if (a.price === undefined) return b.price === undefined ? 0 : 1;
+  if (b.price === undefined) return -1;
+  return direction === 'asc' ? a.price - b.price : b.price - a.price;
+}
 
 function inferCategory(value: string) {
   const text = value.toLowerCase();
@@ -77,8 +50,9 @@ const catColor: Record<string, string> = {
 };
 
 export default function CoursesPage() {
-  const [coursesList, setCoursesList] = useState<CourseItem[]>(fallbackCourses);
+  const [coursesList, setCoursesList] = useState<CourseItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [sortBy, setSortBy] = useState<SortOption>('recommended');
   const [loading, setLoading] = useState(true);
 
   // Enrollment / Stripe checkout state
@@ -114,8 +88,8 @@ export default function CoursesPage() {
             )
           `);
 
-        if (!error && data && data.length > 0) {
-          const mapped: CourseItem[] = data.map((c: Record<string, unknown>) => {
+        if (!error) {
+          const mapped: CourseItem[] = (data ?? []).map((c: Record<string, unknown>) => {
             const instructor = c.instructors as { firstname?: string; lastname?: string } | null;
             const instructorName = instructor ? `${instructor.firstname || ''} ${instructor.lastname || ''}`.trim() : undefined;
             return {
@@ -127,14 +101,14 @@ export default function CoursesPage() {
               level: (c.level as string) || 'Professional',
               format: (c.format as string) || 'Hybrid',
               img: (c.image_url as string) || 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=800&q=80',
-              price: c.price as number,
+              price: typeof c.price === 'number' ? c.price : undefined,
               instructorName,
             };
           });
           setCoursesList(mapped);
         }
       } catch (err) {
-        console.warn('Using default course list:', err);
+        console.warn('Unable to load courses:', err);
       } finally {
         setLoading(false);
       }
@@ -275,9 +249,19 @@ export default function CoursesPage() {
     }
   };
 
+  const categories = loading ? defaultCategories : deriveCategories(coursesList);
   const filteredCourses = selectedCategory === 'All'
     ? coursesList
-    : coursesList.filter((c) => c.cat === selectedCategory);
+    : coursesList.filter((course) => course.cat === selectedCategory);
+  const displayedCourses = [...filteredCourses];
+
+  if (sortBy === 'name-asc') {
+    displayedCourses.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
+  } else if (sortBy === 'price-asc') {
+    displayedCourses.sort((a, b) => compareCoursePrices(a, b, 'asc'));
+  } else if (sortBy === 'price-desc') {
+    displayedCourses.sort((a, b) => compareCoursePrices(a, b, 'desc'));
+  }
 
   return (
     <SiteLayout>
@@ -305,22 +289,43 @@ export default function CoursesPage() {
             </div>
           )}
           <ScrollReveal>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 56 }}>
-              {categories.map((cat) => (
-                <span
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
+            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 56 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 600, color: '#555' }}>
+                Category
+                <select
+                  aria-label="Category"
+                  value={selectedCategory}
+                  onChange={(event) => setSelectedCategory(event.target.value)}
                   style={{
-                    padding: '8px 20px', borderRadius: 30, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                    background: selectedCategory === cat ? '#7B1A2D' : 'transparent',
-                    color: selectedCategory === cat ? '#fff' : '#666',
-                    border: `1.5px solid ${selectedCategory === cat ? '#7B1A2D' : 'rgba(0,0,0,0.12)'}`,
-                    transition: 'all 0.2s',
+                    padding: '10px 16px', borderRadius: 30, border: '1.5px solid rgba(0,0,0,0.15)',
+                    background: '#fff', color: '#1A1A2A', cursor: 'pointer', outline: 'none',
+                    fontFamily: 'DM Sans, sans-serif', fontSize: 14, fontWeight: 600,
                   }}
                 >
-                  {cat}
-                </span>
-              ))}
+                  {categories.map((category) => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 600, color: '#555' }}>
+                Sort by
+                <select
+                  aria-label="Sort by"
+                  value={sortBy}
+                  onChange={(event) => setSortBy(event.target.value as SortOption)}
+                  style={{
+                    padding: '10px 16px', borderRadius: 30, border: '1.5px solid rgba(0,0,0,0.15)',
+                    background: '#fff', color: '#1A1A2A', cursor: 'pointer', outline: 'none',
+                    fontFamily: 'DM Sans, sans-serif', fontSize: 14, fontWeight: 600,
+                  }}
+                >
+                  <option value="recommended">Recommended</option>
+                  <option value="name-asc">Name A–Z</option>
+                  <option value="price-asc">Price: Low to High</option>
+                  <option value="price-desc">Price: High to Low</option>
+                </select>
+              </label>
             </div>
           </ScrollReveal>
 
@@ -328,9 +333,29 @@ export default function CoursesPage() {
             <div style={{ textAlign: 'center', padding: '60px 0', color: '#888' }}>
               Loading courses from Supabase...
             </div>
+          ) : displayedCourses.length === 0 ? (
+            <ScrollReveal>
+              <div style={{
+                maxWidth: 760, margin: '0 auto', padding: '64px 24px', textAlign: 'center',
+                background: '#F8F8FA', border: '1.5px dashed rgba(0,0,0,0.2)', borderRadius: 18,
+              }}>
+                <div style={{ fontSize: 48, marginBottom: 16 }} aria-hidden="true">📚</div>
+                <h2 style={{ fontSize: 25, fontWeight: 700, color: '#1A1A2A', marginBottom: 10 }}>
+                  {coursesList.length === 0
+                    ? 'No courses available right now'
+                    : `No courses in "${selectedCategory}" yet`}
+                </h2>
+                <p style={{ maxWidth: 520, margin: '0 auto 24px', fontSize: 15, color: '#666', lineHeight: 1.7 }}>
+                  {coursesList.length === 0
+                    ? 'We’re preparing new programs. Please check back soon or contact us to discuss your learning goals.'
+                    : 'We’re adding new programs regularly. Try another category or contact us for help finding the right course.'}
+                </p>
+                <a href="/contact" className="btn-gold">Contact Us</a>
+              </div>
+            </ScrollReveal>
           ) : (
             <div className="grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 32 }}>
-              {filteredCourses.map((course, i) => (
+              {displayedCourses.map((course, i) => (
                 <ScrollReveal key={course.courseid || i} delay={i * 0.06} threshold={0.1}>
                   <div className="strive-card" style={{ display: 'flex', flexDirection: 'column' }}>
                     <div style={{ position: 'relative', overflow: 'hidden' }}>
