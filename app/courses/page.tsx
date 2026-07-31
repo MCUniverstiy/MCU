@@ -300,7 +300,7 @@ export default function CoursesPage() {
               fontSize: 14, color: '#1A1A2A', lineHeight: 1.6,
             }}>
               {checkoutNotice === 'success'
-                ? '✅ Payment received! Your enrollment is being activated — the “✓ Enrolled” badge will appear on your course within a few seconds.'
+                ? '✅ Payment received! Your enrollment is being activated — the “✓ Enrolled” badge will appear on your course within a few seconds. If this course runs on Google Classroom, an invitation email is on its way too — accept it to access your class materials.'
                 : 'Checkout was cancelled — no payment was taken. You can enroll anytime.'}
             </div>
           )}

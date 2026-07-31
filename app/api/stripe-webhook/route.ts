@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { getStripe, fromMinorUnits } from '@/lib/stripe';
 import { createServiceClient } from '@/lib/supabase/service';
+import {
+  addStudentToClass,
+  isClassroomConfigured,
+  recordInviteOutcome,
+  resolveClassroomCourseId,
+} from '@/lib/google-classroom';
 
 // Blueprint step: listen for checkout.session.completed and fulfill the order.
 // This webhook — never the browser — is what marks enrollments Paid and
@@ -90,6 +96,31 @@ export async function POST(request: Request) {
       // Unique violation = enrollment already exists (duplicate webhook) — safe to ignore.
       if (enrollError && !/duplicate key/i.test(enrollError.message)) {
         throw new Error(enrollError.message);
+      }
+
+      // Google Classroom: put the student on the class roster (or send the
+      // invite e-mail). Never throw here — a Classroom hiccup must not make
+      // Stripe retry the whole webhook. Outcome is recorded for admin view.
+      try {
+        if (isClassroomConfigured()) {
+          const classroomCourseId = await resolveClassroomCourseId(db, courseid);
+          if (classroomCourseId) {
+            const { data: student } = await db
+              .from('users')
+              .select('email')
+              .eq('id', userId)
+              .maybeSingle();
+            if (student?.email) {
+              const status = await addStudentToClass(classroomCourseId, student.email);
+              await recordInviteOutcome(db, userId, courseid, status, null);
+            }
+          }
+        }
+      } catch (classroomError) {
+        const message =
+          classroomError instanceof Error ? classroomError.message : 'Classroom invite failed';
+        console.error(`Classroom invite failed (user ${userId}, course ${courseid}):`, message);
+        await recordInviteOutcome(db, userId, courseid, 'failed', String(message).slice(0, 500));
       }
     }
 
