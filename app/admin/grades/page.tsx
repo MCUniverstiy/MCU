@@ -95,7 +95,12 @@ export default function AdminGradesPage() {
     }
   }, [selectedCourseId]);
 
-  useEffect(() => { loadEnrollments(); }, [loadEnrollments]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadEnrollments();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadEnrollments]);
 
   const setGrade = async (enrollmentid: number, grade: 'Pass' | 'Fail' | null) => {
     setSavingId(enrollmentid);
@@ -198,12 +203,15 @@ export default function AdminGradesPage() {
                   border: '1.5px solid #DDD', outline: 'none', background: '#fff', cursor: 'pointer',
                 }}
               >
-                {courses.map((c) => (
+                {courses.map((c, index) => (
                   <option key={c.courseid} value={c.courseid}>
-                    #{c.courseid} — {c.coursename}
+                    Course {index + 1} — {c.coursename}
                   </option>
                 ))}
               </select>
+              <small style={{ display: 'block', color: '#999', marginTop: 6 }}>
+                The number shown here is the display position; database course IDs stay unchanged.
+              </small>
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
               <button
