@@ -16,11 +16,21 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Contributing
+
+Work in a branch and open a pull request against `master` when your changes are ready for review.
+
 ## Membership tier CMS
 
 Membership tier fields, the Supabase migration, and admin editing instructions are documented in [`MEMBERSHIP-TIERS-SETUP.md`](./MEMBERSHIP-TIERS-SETUP.md). Run [`supabase/membership-cms.sql`](./supabase/membership-cms.sql) in the Supabase SQL Editor before using **Admin → Content Manager → Membership tiers**.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+## Instructor CMS
+
+Manage the teaching team under **Admin → Content Manager → Instructors** (names, specialisations, bios and profile photos), then assign an instructor to each course via the Instructor dropdown in **Admin → Content Manager → Courses**. The assigned instructor's name appears on the public `/courses` page.
+
+**No extra database migration is required.** The `instructors` table and the `courses.instructorid` column ship in [`supabase/RUN-THIS-IN-SUPABASE.sql`](./supabase/RUN-THIS-IN-SUPABASE.sql), and the `bio` / `photo_url` columns plus the admin policies ship in [`supabase/cms.sql`](./supabase/cms.sql) — both already required by the shop/courses CMS. If you see a "column does not exist" error in the admin pages, run `supabase/cms.sql` once in the Supabase SQL Editor; it is safe to re-run.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
