@@ -13,16 +13,26 @@
 --      (service role), not by client-side code.
 -- =============================================================
 
--- 1. Membership pricing (previously hardcoded in app/membership/page.tsx)
+-- 1. Membership pricing is stored as a normal decimal amount. The
+--    membership CMS migration seeds the VIP USD plans and adds editable
+--    currency/category/feature fields. Keep this migration safe for older
+--    installations that only have the original membership columns.
 ALTER TABLE public.membershiptiers
-  ADD COLUMN IF NOT EXISTS price NUMERIC(8,2)
+  ADD COLUMN IF NOT EXISTS price NUMERIC(12,2)
     CHECK (price IS NULL OR price >= 0);
+ALTER TABLE public.membershiptiers
+  ALTER COLUMN price TYPE NUMERIC(12,2);
+ALTER TABLE public.membershiptiers
+  ADD COLUMN IF NOT EXISTS currency VARCHAR(3) NOT NULL DEFAULT 'USD';
 ALTER TABLE public.membershiptiers
   ADD COLUMN IF NOT EXISTS stripe_price_id TEXT;
 
-UPDATE public.membershiptiers SET price = 1200.00 WHERE tierid = 1 AND price IS NULL;
-UPDATE public.membershiptiers SET price = 3800.00 WHERE tierid = 2 AND price IS NULL;
-UPDATE public.membershiptiers SET price = 8800.00 WHERE tierid = 3 AND price IS NULL;
+-- Legacy fallback only. Normal installations should run
+-- supabase/membership-cms.sql, which changes the three original seed rows to
+-- VIP Gold International / VIP Jade International / VIP Black Diamond.
+UPDATE public.membershiptiers SET price = 50000.00 WHERE tierid = 1 AND price IS NULL;
+UPDATE public.membershiptiers SET price = 1000000.00 WHERE tierid = 2 AND price IS NULL;
+UPDATE public.membershiptiers SET price = 2000000.00 WHERE tierid = 3 AND price IS NULL;
 
 -- 2. Cached Stripe price per course (created lazily on first checkout)
 ALTER TABLE public.courses

@@ -1,6 +1,5 @@
 import Stripe from 'stripe';
 import {
-  CHECKOUT_CURRENCY,
   PRODUCT_TAX_CODE,
   getStripe,
   managedPaymentsRequestOptions,
@@ -15,7 +14,8 @@ interface SellableItem {
   id: number;
   name: string;
   description: string;
-  unitAmount: number; // minor units (HKD cents)
+  unitAmount: number; // minor units for the item's currency
+  currency: string;
 }
 
 /**
@@ -42,6 +42,11 @@ export async function ensureStripePrice(item: SellableItem): Promise<string> {
   const cached = (row as { stripe_price_id?: string } | null)?.stripe_price_id;
   if (cached) return cached;
 
+  const currency = item.currency.trim().toLowerCase();
+  if (!/^[a-z]{3}$/.test(currency)) {
+    throw new Error(`Unsupported checkout currency: ${item.currency}`);
+  }
+
   // Preview-only params (tax_code / default_price_data) — the cast keeps the
   // stable SDK types happy while sending exactly what the blueprint specifies.
   const product = await stripe.products.create(
@@ -51,7 +56,7 @@ export async function ensureStripePrice(item: SellableItem): Promise<string> {
       tax_code: PRODUCT_TAX_CODE,
       default_price_data: {
         unit_amount: item.unitAmount,
-        currency: CHECKOUT_CURRENCY,
+        currency,
       },
       metadata: { source_table: item.table, source_id: String(item.id) },
     } as Stripe.ProductCreateParams,

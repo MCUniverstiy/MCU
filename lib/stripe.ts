@@ -33,7 +33,8 @@ export const managedPaymentsRequestOptions = {
 // docs if a course/tier should be taxed differently.
 export const PRODUCT_TAX_CODE = 'txcd_10103100';
 
-// MCU Institute charges in HKD (a two-decimal currency, so minor units = cents).
+// Courses use HKD by default. Membership tiers carry their own three-letter
+// currency code in membershiptiers.currency (the CMS seeds the VIP plans as USD).
 export const CHECKOUT_CURRENCY = 'hkd';
 
 export function toMinorUnits(amount: number): number {
