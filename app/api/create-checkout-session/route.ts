@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
-import { getStripe, managedPaymentsRequestOptions, toMinorUnits } from '@/lib/stripe';
+import { CHECKOUT_CURRENCY, getStripe, managedPaymentsRequestOptions, toMinorUnits } from '@/lib/stripe';
 import { ensureDiscountCoupon, ensureStripePrice } from '@/lib/stripe-catalog';
 
 // Blueprint step: create a Checkout Session with managed_payments[enabled]=true.
@@ -93,6 +93,7 @@ export async function POST(request: Request) {
         name: course.coursename,
         description: course.description || `Enrollment — ${course.coursename}`,
         unitAmount: toMinorUnits(price),
+        currency: CHECKOUT_CURRENCY,
       });
 
       metadata = { kind: 'course', user_id: user.id, courseid: String(courseid) };
@@ -109,15 +110,16 @@ export async function POST(request: Request) {
 
       const { data: tierRow, error: tierError } = await db
         .from('membershiptiers')
-        .select('tierid, membname, price')
+        .select('tierid, membname, price, currency')
         .eq('tierid', tierid)
         .maybeSingle();
 
       if (tierError) {
-        // Pre-migration schema has no `price` column.
-        if (/column.*price.*does not exist/i.test(tierError.message)) {
+        // Existing installations need the membership CMS/Stripe migrations
+        // before they can sell the new catalogue rows.
+        if (/column.*(price|currency).*does not exist/i.test(tierError.message)) {
           return NextResponse.json(
-            { error: 'Membership pricing is not configured — run supabase/stripe.sql in the Supabase SQL editor first.' },
+            { error: 'Membership pricing is not configured — run supabase/membership-cms.sql and supabase/stripe.sql in the Supabase SQL editor first.' },
             { status: 500 },
           );
         }
@@ -143,6 +145,7 @@ export async function POST(request: Request) {
         name: `${tierRow.membname} Membership`,
         description: `MCU Institute ${tierRow.membname} membership — annual`,
         unitAmount: toMinorUnits(price),
+        currency: typeof tierRow.currency === 'string' ? tierRow.currency : 'USD',
       });
 
       metadata = { kind: 'membership', user_id: user.id, tierid: String(tierid) };

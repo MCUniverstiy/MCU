@@ -26,7 +26,13 @@ const socials = [
 
 export default function Footer() {
   return (
-    <footer id="contact" style={{ background: '#1A1A2A', padding: '64px 0 0' }}>
+    <footer
+      id="contact"
+      style={{
+        background: 'linear-gradient(135deg, #7B1A2D 0%, #5a1320 100%)',
+        padding: '64px 0 0',
+      }}
+    >
       <div className="container">
         <div
           className="footer-grid"

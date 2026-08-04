@@ -15,6 +15,13 @@ RETURNS BOOLEAN AS $$
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 -- 3. Admin RLS policies
+-- Membership tiers are also editable from /admin/cms/membership.
+DROP POLICY IF EXISTS "Admins manage membership tiers" ON public.membershiptiers;
+CREATE POLICY "Admins manage membership tiers" ON public.membershiptiers
+  FOR ALL TO authenticated
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
 -- Admins can see all user profiles (needed to list students)
 DROP POLICY IF EXISTS "Admins can view all profiles" ON public.users;
 CREATE POLICY "Admins can view all profiles" ON public.users

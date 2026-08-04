@@ -6,6 +6,7 @@ import AdminGuard from '@/components/AdminGuard';
 const cards = [
   ['🛍️','Shop products','Create products, prices, descriptions, badges and photos','/admin/cms/products'],
   ['📚','Courses','Manage course titles, headings, descriptions, prices, metadata and photos','/admin/cms/courses'],
+  ['💎','Membership tiers','Edit VIP plans, categories, prices, benefits, visibility and display order','/admin/cms/membership'],
   ['👨‍🏫','Instructors','Add instructor names, bios and profile photos','/admin/cms/instructors'],
   ['📨','Enquiries','Read and manage contact form enquiries','/admin/enquiries'],
   ['📦','Orders','Review shop orders and update their status','/admin/orders'],
