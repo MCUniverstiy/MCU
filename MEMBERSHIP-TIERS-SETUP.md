@@ -15,7 +15,17 @@ The membership page now reads its plans from the `membershiptiers` table. Admini
 6. If Stripe checkout is enabled, also run `supabase/stripe.sql` after this migration. The Stripe migration creates the payment ledger and checkout-related columns.
 7. Sign in to the website with an administrator account and open `/admin/cms/membership`.
 
-This migration is safe to run again. It only replaces the original `Standard`, `Professional`, and `Premium` seed rows. Rows that an administrator has renamed are not overwritten.
+This migration is safe to run again. It only replaces the original `Standard`, `Professional`, and `Premium` seed rows. Rows that an administrator has renamed are not overwritten. It also synchronises the membership ID sequence so newly added tiers do not reuse an existing ID.
+
+If you already ran an earlier version of the migration and saw `duplicate key value violates unique constraint "membershiptiers_pkey"`, rerun the updated migration. Or run this one-time repair in Supabase SQL Editor:
+
+```sql
+SELECT setval(
+  pg_get_serial_sequence('public.membershiptiers', 'tierid')::regclass,
+  COALESCE((SELECT MAX(tierid) FROM public.membershiptiers), 0) + 1,
+  FALSE
+);
+```
 
 > Do **not** run `supabase/RUN-THIS-IN-SUPABASE.sql` on a live project unless you intentionally want to rebuild the database. That file drops and recreates application tables.
 

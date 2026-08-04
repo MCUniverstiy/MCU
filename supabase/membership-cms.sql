@@ -171,6 +171,23 @@ ON CONFLICT (tierid) DO UPDATE SET
   stripe_price_id = NULL
 WHERE public.membershiptiers.membname IN ('Standard', 'Professional', 'Premium');
 
+-- Explicit tier IDs in the seed above do not always advance PostgreSQL's
+-- identity sequence. Synchronise it so the next admin-created tier receives
+-- the next unused ID instead of trying to insert 1 again.
+DO $$
+DECLARE
+  tier_sequence TEXT;
+BEGIN
+  tier_sequence := pg_get_serial_sequence('public.membershiptiers', 'tierid');
+  IF tier_sequence IS NOT NULL THEN
+    PERFORM setval(
+      tier_sequence::regclass,
+      COALESCE((SELECT MAX(tierid) FROM public.membershiptiers), 0) + 1,
+      FALSE
+    );
+  END IF;
+END $$;
+
 -- 4. Public members see active tiers; administrators can manage all tiers.
 ALTER TABLE public.membershiptiers ENABLE ROW LEVEL SECURITY;
 

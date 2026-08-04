@@ -280,6 +280,22 @@ ON CONFLICT (tierid) DO UPDATE SET
   active = EXCLUDED.active,
   sort_order = EXCLUDED.sort_order;
 
+-- Explicit tier IDs do not always advance PostgreSQL's identity sequence.
+-- Synchronise it so the next admin-created tier receives the next unused ID.
+DO $$
+DECLARE
+  tier_sequence TEXT;
+BEGIN
+  tier_sequence := pg_get_serial_sequence('public.membershiptiers', 'tierid');
+  IF tier_sequence IS NOT NULL THEN
+    PERFORM setval(
+      tier_sequence::regclass,
+      COALESCE((SELECT MAX(tierid) FROM public.membershiptiers), 0) + 1,
+      FALSE
+    );
+  END IF;
+END $$;
+
 -- 11.2 Instructors
 INSERT INTO public.instructors (firstname, lastname, specialization)
 VALUES

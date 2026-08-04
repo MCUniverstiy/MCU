@@ -210,7 +210,11 @@ export default function MembershipCMSPage() {
       : await db.from('membershiptiers').insert(payload);
 
     if (result.error) {
-      setError(result.error.message);
+      setError(
+        /duplicate key.*membershiptiers_pkey/i.test(result.error.message)
+          ? 'Supabase’s membership ID sequence is out of sync. Run the sequence repair in MEMBERSHIP-TIERS-SETUP.md, then try again.'
+          : result.error.message,
+      );
     } else {
       setEdit(null);
       setNotice('Membership tier saved.');

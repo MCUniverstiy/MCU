@@ -129,6 +129,11 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   box-shadow: 0 12px 32px rgba(0,0,0,0.08);
 }
 
+/* Equal-height catalogue cards: each grid row stretches to its tallest item. */
+.equal-height-grid > .reveal {
+  height: 100%;
+}
+
 /* Course card */
 .course-card {
   border-radius: 16px;

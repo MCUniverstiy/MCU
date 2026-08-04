@@ -34,12 +34,12 @@ export default function CoursesSection() {
       <div style={{ padding: '80px 0', background: '#fff' }}>
         <div className="container">
           <div
-            className="grid-4"
-            style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 24 }}
+            className="grid-4 equal-height-grid"
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 24, alignItems: 'stretch' }}
           >
             {courses.map((course, i) => (
-              <ScrollReveal key={i} delay={i * 0.08} threshold={0.1}>
-                <div className="course-card">
+              <ScrollReveal key={i} delay={i * 0.08} threshold={0.1} style={{ height: '100%' }}>
+                <div className="course-card" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <div style={{ position: 'relative', overflow: 'hidden' }}>
                     <div style={{ width: '100%', aspectRatio: '4/3', background: '#e8e8ec', overflow: 'hidden' }}>
                       <img
@@ -54,11 +54,11 @@ export default function CoursesSection() {
                       background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 50%)',
                     }} />
                   </div>
-                  <div style={{ padding: '20px 20px 24px' }}>
+                  <div style={{ padding: '20px 20px 24px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                     <h3 style={{ fontSize: 16, fontWeight: 600, color: '#1A1A2A', lineHeight: 1.4 }}>
                       {course.title}
                     </h3>
-                    <span className="learn-more">Learn More →</span>
+                    <span className="learn-more" style={{ marginTop: 'auto', paddingTop: 12 }}>Learn More →</span>
                   </div>
                 </div>
               </ScrollReveal>

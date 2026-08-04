@@ -199,7 +199,7 @@ export default function CoursesPage() {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      window.location.href = '/login?redirect=/courses';
+      window.location.assign('/login?redirect=/courses');
       return;
     }
 
@@ -354,10 +354,10 @@ export default function CoursesPage() {
               </div>
             </ScrollReveal>
           ) : (
-            <div className="grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 32 }}>
+            <div className="grid-3 equal-height-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 32, alignItems: 'stretch' }}>
               {displayedCourses.map((course, i) => (
-                <ScrollReveal key={course.courseid || i} delay={i * 0.06} threshold={0.1}>
-                  <div className="strive-card" style={{ display: 'flex', flexDirection: 'column' }}>
+                <ScrollReveal key={course.courseid || i} delay={i * 0.06} threshold={0.1} style={{ height: '100%' }}>
+                  <div className="strive-card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                     <div style={{ position: 'relative', overflow: 'hidden' }}>
                       <div style={{ width: '100%', aspectRatio: '16/9', background: '#e8e8ec', overflow: 'hidden' }}>
                         <img

@@ -380,13 +380,14 @@ export default function MembershipPage() {
               No active membership tiers are available right now. Please contact us for assistance.
             </div>
           ) : (
-            <div className="grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 32, alignItems: 'start' }}>
+            <div className="grid-3 equal-height-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 32, alignItems: 'stretch' }}>
               {visibleTiers.map((tier, i) => {
                 const isCurrent = currentTierid === tier.tierid;
                 const textColor = tier.highlight ? '#fff' : '#1A1A2A';
                 return (
-                  <ScrollReveal key={tier.tierid} delay={i * 0.1} threshold={0.1}>
+                  <ScrollReveal key={tier.tierid} delay={i * 0.1} threshold={0.1} style={{ height: '100%' }}>
                     <article style={{
+                      height: '100%', display: 'flex', flexDirection: 'column',
                       borderRadius: 20, background: tier.highlight ? '#7B1A2D' : '#fff',
                       border: `2px solid ${isCurrent ? '#2EC4B6' : tier.highlight ? '#7B1A2D' : 'rgba(0,0,0,0.08)'}`,
                       overflow: 'hidden', boxShadow: tier.highlight ? '0 20px 60px rgba(123,26,45,0.25)' : '0 2px 20px rgba(0,0,0,0.06)',
@@ -403,7 +404,7 @@ export default function MembershipPage() {
                         </div>
                       )}
                       <div style={{ height: 5, background: tier.color }} />
-                      <div style={{ padding: 32 }}>
+                      <div style={{ padding: 32, display: 'flex', flexDirection: 'column', flex: 1 }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: tier.highlight ? 'rgba(255,255,255,0.65)' : tier.color, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
                           {tier.category}
                         </div>
@@ -431,7 +432,7 @@ export default function MembershipPage() {
                           disabled={isCurrent}
                           style={{
                             width: '100%', border: 'none', cursor: isCurrent ? 'default' : 'pointer',
-                            textAlign: 'center', marginTop: 32, padding: '14px 24px', borderRadius: 30,
+                            textAlign: 'center', marginTop: 'auto', padding: '14px 24px', borderRadius: 30,
                             fontSize: 15, fontWeight: 600,
                             background: isCurrent ? '#2EC4B6' : tier.highlight ? '#E5A52E' : tier.color,
                             color: '#fff', transition: 'all 0.3s',
