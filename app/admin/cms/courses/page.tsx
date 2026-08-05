@@ -18,6 +18,7 @@ type CourseRow = {
   level: string | null;
   format: string | null;
   instructorid: number | null;
+  classroom_course_id?: string | null;
 };
 
 type CourseForm = {
@@ -31,6 +32,7 @@ type CourseForm = {
   level: string;
   format: string;
   instructorid: string;
+  classroom_course_id: string;
 };
 
 type InstructorOption = {
@@ -38,6 +40,17 @@ type InstructorOption = {
   firstname: string;
   lastname: string;
 };
+
+function extractClassroomCourseId(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return '';
+  // Extract ID from full Classroom URLs like https://classroom.google.com/c/731234567890 or https://classroom.google.com/u/0/c/731234567890/details
+  const match = trimmed.match(/classroom\.google\.com\/(?:u\/\d+\/)?c\/([a-zA-Z0-9_-]+)/i);
+  if (match && match[1]) {
+    return match[1];
+  }
+  return trimmed;
+}
 
 function blankCourse(): CourseForm {
   return {
@@ -51,6 +64,7 @@ function blankCourse(): CourseForm {
     level: '',
     format: 'Hybrid',
     instructorid: '',
+    classroom_course_id: '',
   };
 }
 
@@ -66,6 +80,7 @@ function toForm(row: CourseRow): CourseForm {
     level: row.level || '',
     format: row.format || 'Hybrid',
     instructorid: row.instructorid === null || row.instructorid === undefined ? '' : String(row.instructorid),
+    classroom_course_id: row.classroom_course_id || '',
   };
 }
 
@@ -80,8 +95,8 @@ function formatPrice(value: CourseRow) {
 }
 
 function schemaHint(message: string) {
-  return /category|image_url|duration|level|format|instructorid/i.test(message) && /column|schema cache|does not exist/i.test(message)
-    ? ' Some course fields are not ready yet — run supabase/cms.sql in the Supabase SQL Editor, then reload this page.'
+  return /category|image_url|duration|level|format|instructorid|classroom_course_id/i.test(message) && /column|schema cache|does not exist/i.test(message)
+    ? ' Some course fields are not ready yet — run supabase/classroom.sql in the Supabase SQL Editor, then reload this page.'
     : '';
 }
 
@@ -179,6 +194,7 @@ export default function CoursesCMSPage() {
     setNotice('');
 
     const categoryValue = edit.category.trim() || 'Other';
+    const cleanClassroom = extractClassroomCourseId(edit.classroom_course_id);
 
     const payload = {
       coursename: title,
@@ -191,6 +207,7 @@ export default function CoursesCMSPage() {
       level: edit.level.trim() || null,
       format: edit.format.trim() || null,
       instructorid: edit.instructorid ? Number(edit.instructorid) : null,
+      classroom_course_id: cleanClassroom || null,
     };
 
     const result = edit.courseid
@@ -237,7 +254,7 @@ export default function CoursesCMSPage() {
                 </p>
                 <h1 style={{ marginTop: 6, color: '#1A1A2A' }}>Courses</h1>
                 <p style={{ color: '#666', marginTop: 8, maxWidth: 680, lineHeight: 1.6 }}>
-                  Manage titles, categories, prices, metadata, photos and the instructor shown on the public courses page.
+                  Manage titles, categories, prices, Google Classroom links, metadata, photos and the instructor shown on the public courses page.
                 </p>
               </div>
               <button type="button" onClick={startNew} style={buttonStyle}>+ Add course</button>
@@ -265,6 +282,11 @@ export default function CoursesCMSPage() {
                           {row.instructorid && instructorById.get(row.instructorid)
                             ? ` · Instructor: ${instructorById.get(row.instructorid)}`
                             : ''}
+                          {row.classroom_course_id ? (
+                            <span style={{ color: '#2EC4B6', fontWeight: 600 }}> · 🏫 Classroom Linked</span>
+                          ) : (
+                            <span style={{ color: '#a00', opacity: 0.7 }}> · 🏫 No Classroom</span>
+                          )}
                         </small>
                       </div>
                       <button type="button" onClick={() => startEdit(row)} style={smallButton}>Edit</button>
@@ -293,6 +315,19 @@ export default function CoursesCMSPage() {
                   <datalist id="course-category-options">
                     {categories.map((category) => <option key={category} value={category} />)}
                   </datalist>
+
+                  <label style={labelStyle}>
+                    Google Classroom Link or Class ID
+                    <input
+                      value={edit.classroom_course_id}
+                      onChange={(event) => setEdit({ ...edit, classroom_course_id: event.target.value })}
+                      style={inputStyle}
+                      placeholder="https://classroom.google.com/c/731234567890"
+                    />
+                    <span style={{ display: 'block', fontSize: 12, color: '#777', marginTop: 4, fontWeight: 400, lineHeight: 1.4 }}>
+                      Paste the Google Classroom link (or ID). When a student pays for this course, they will automatically be invited to this classroom.
+                    </span>
+                  </label>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <label style={labelStyle}>
