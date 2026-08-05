@@ -23,7 +23,6 @@ type CourseRow = {
 type CourseForm = {
   courseid: number;
   coursename: string;
-  coursetype: string;
   category: string;
   price: string;
   description: string;
@@ -44,7 +43,6 @@ function blankCourse(): CourseForm {
   return {
     courseid: 0,
     coursename: '',
-    coursetype: '',
     category: 'Financial Planning',
     price: '0',
     description: '',
@@ -60,8 +58,7 @@ function toForm(row: CourseRow): CourseForm {
   return {
     courseid: row.courseid,
     coursename: row.coursename || '',
-    coursetype: row.coursetype || '',
-    category: row.category || 'Financial Planning',
+    category: row.category || row.coursetype || 'Financial Planning',
     price: row.price === null || row.price === undefined ? '' : String(row.price),
     description: row.description || '',
     image_url: row.image_url || '',
@@ -125,7 +122,7 @@ export default function CoursesCMSPage() {
   }, [load]);
 
   const categories = useMemo(
-    () => Array.from(new Set(rows.map((row) => row.category).filter((category): category is string => Boolean(category)))),
+    () => Array.from(new Set(rows.map((row) => row.category || row.coursetype).filter((category): category is string => Boolean(category)))),
     [rows],
   );
 
@@ -181,10 +178,12 @@ export default function CoursesCMSPage() {
     setError('');
     setNotice('');
 
+    const categoryValue = edit.category.trim() || 'Other';
+
     const payload = {
       coursename: title,
-      coursetype: edit.coursetype.trim(),
-      category: edit.category.trim() || 'Other',
+      coursetype: categoryValue,
+      category: categoryValue,
       price,
       description: edit.description.trim() || null,
       image_url: edit.image_url.trim() || null,
@@ -259,7 +258,7 @@ export default function CoursesCMSPage() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <strong style={{ color: '#1A1A2A' }}>{row.coursename}</strong>
                         <div style={{ color: '#666', fontSize: 13, marginTop: 6 }}>
-                          {row.coursetype} · {row.category || 'Other'} · {formatPrice(row)}
+                          {row.category || row.coursetype || 'Other'} · {formatPrice(row)}
                         </div>
                         <small style={{ color: '#999' }}>
                           {[row.duration, row.level, row.format].filter(Boolean).join(' · ')}
@@ -286,16 +285,11 @@ export default function CoursesCMSPage() {
                     Title *
                     <input value={edit.coursename} onChange={(event) => setEdit({ ...edit, coursename: event.target.value })} style={inputStyle} placeholder="CEO Wealth Management Program" />
                   </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <label style={labelStyle}>
-                      Heading / course type
-                      <input value={edit.coursetype} onChange={(event) => setEdit({ ...edit, coursetype: event.target.value })} style={inputStyle} placeholder="Wealth Management" />
-                    </label>
-                    <label style={labelStyle}>
-                      Service / category
-                      <input list="course-category-options" value={edit.category} onChange={(event) => setEdit({ ...edit, category: event.target.value })} style={inputStyle} placeholder="Financial Planning" />
-                    </label>
-                  </div>
+
+                  <label style={labelStyle}>
+                    Category *
+                    <input list="course-category-options" value={edit.category} onChange={(event) => setEdit({ ...edit, category: event.target.value })} style={inputStyle} placeholder="Financial Planning" />
+                  </label>
                   <datalist id="course-category-options">
                     {categories.map((category) => <option key={category} value={category} />)}
                   </datalist>
