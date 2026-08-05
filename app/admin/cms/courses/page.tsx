@@ -18,12 +18,12 @@ type CourseRow = {
   level: string | null;
   format: string | null;
   instructorid: number | null;
+  classroom_course_id?: string | null;
 };
 
 type CourseForm = {
   courseid: number;
   coursename: string;
-  coursetype: string;
   category: string;
   price: string;
   description: string;
@@ -32,6 +32,7 @@ type CourseForm = {
   level: string;
   format: string;
   instructorid: string;
+  classroom_course_id: string;
 };
 
 type InstructorOption = {
@@ -40,11 +41,28 @@ type InstructorOption = {
   lastname: string;
 };
 
+function extractClassroomCourseId(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return '';
+  // Extract ID from full Classroom URLs like https://classroom.google.com/c/ODY5MDk0NzIyMTAz or https://classroom.google.com/u/0/c/731234567890/details
+  const match = trimmed.match(/classroom\.google\.com\/(?:u\/\d+\/)?c\/([a-zA-Z0-9_-]+)/i);
+  let id = match && match[1] ? match[1] : trimmed;
+  // If base64 encoded digits (e.g. ODY5MDk0NzIyMTAz -> 869094722103), decode it so Google API receives the numeric ID
+  if (/^[a-zA-Z0-9_-]+$/.test(id) && !/^\d+$/.test(id)) {
+    try {
+      const decoded = typeof atob === 'function' ? atob(id) : Buffer.from(id, 'base64').toString('utf-8');
+      if (/^\d+$/.test(decoded)) return decoded;
+    } catch {
+      // Keep as-is if decoding fails
+    }
+  }
+  return id;
+}
+
 function blankCourse(): CourseForm {
   return {
     courseid: 0,
     coursename: '',
-    coursetype: '',
     category: 'Financial Planning',
     price: '0',
     description: '',
@@ -53,6 +71,7 @@ function blankCourse(): CourseForm {
     level: '',
     format: 'Hybrid',
     instructorid: '',
+    classroom_course_id: '',
   };
 }
 
@@ -60,8 +79,7 @@ function toForm(row: CourseRow): CourseForm {
   return {
     courseid: row.courseid,
     coursename: row.coursename || '',
-    coursetype: row.coursetype || '',
-    category: row.category || 'Financial Planning',
+    category: row.category || row.coursetype || 'Financial Planning',
     price: row.price === null || row.price === undefined ? '' : String(row.price),
     description: row.description || '',
     image_url: row.image_url || '',
@@ -69,6 +87,7 @@ function toForm(row: CourseRow): CourseForm {
     level: row.level || '',
     format: row.format || 'Hybrid',
     instructorid: row.instructorid === null || row.instructorid === undefined ? '' : String(row.instructorid),
+    classroom_course_id: row.classroom_course_id || '',
   };
 }
 
@@ -83,8 +102,8 @@ function formatPrice(value: CourseRow) {
 }
 
 function schemaHint(message: string) {
-  return /category|image_url|duration|level|format|instructorid/i.test(message) && /column|schema cache|does not exist/i.test(message)
-    ? ' Some course fields are not ready yet — run supabase/cms.sql in the Supabase SQL Editor, then reload this page.'
+  return /category|image_url|duration|level|format|instructorid|classroom_course_id/i.test(message) && /column|schema cache|does not exist/i.test(message)
+    ? ' Some course fields are not ready yet — run supabase/classroom.sql in the Supabase SQL Editor, then reload this page.'
     : '';
 }
 
@@ -125,7 +144,7 @@ export default function CoursesCMSPage() {
   }, [load]);
 
   const categories = useMemo(
-    () => Array.from(new Set(rows.map((row) => row.category).filter((category): category is string => Boolean(category)))),
+    () => Array.from(new Set(rows.map((row) => row.category || row.coursetype).filter((category): category is string => Boolean(category)))),
     [rows],
   );
 
@@ -181,10 +200,13 @@ export default function CoursesCMSPage() {
     setError('');
     setNotice('');
 
+    const categoryValue = edit.category.trim() || 'Other';
+    const cleanClassroom = extractClassroomCourseId(edit.classroom_course_id);
+
     const payload = {
       coursename: title,
-      coursetype: edit.coursetype.trim(),
-      category: edit.category.trim() || 'Other',
+      coursetype: categoryValue,
+      category: categoryValue,
       price,
       description: edit.description.trim() || null,
       image_url: edit.image_url.trim() || null,
@@ -192,6 +214,7 @@ export default function CoursesCMSPage() {
       level: edit.level.trim() || null,
       format: edit.format.trim() || null,
       instructorid: edit.instructorid ? Number(edit.instructorid) : null,
+      classroom_course_id: cleanClassroom || null,
     };
 
     const result = edit.courseid
@@ -238,7 +261,7 @@ export default function CoursesCMSPage() {
                 </p>
                 <h1 style={{ marginTop: 6, color: '#1A1A2A' }}>Courses</h1>
                 <p style={{ color: '#666', marginTop: 8, maxWidth: 680, lineHeight: 1.6 }}>
-                  Manage titles, categories, prices, metadata, photos and the instructor shown on the public courses page.
+                  Manage titles, categories, prices, Google Classroom links, metadata, photos and the instructor shown on the public courses page.
                 </p>
               </div>
               <button type="button" onClick={startNew} style={buttonStyle}>+ Add course</button>
@@ -259,13 +282,18 @@ export default function CoursesCMSPage() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <strong style={{ color: '#1A1A2A' }}>{row.coursename}</strong>
                         <div style={{ color: '#666', fontSize: 13, marginTop: 6 }}>
-                          {row.coursetype} · {row.category || 'Other'} · {formatPrice(row)}
+                          {row.category || row.coursetype || 'Other'} · {formatPrice(row)}
                         </div>
                         <small style={{ color: '#999' }}>
                           {[row.duration, row.level, row.format].filter(Boolean).join(' · ')}
                           {row.instructorid && instructorById.get(row.instructorid)
                             ? ` · Instructor: ${instructorById.get(row.instructorid)}`
                             : ''}
+                          {row.classroom_course_id ? (
+                            <span style={{ color: '#2EC4B6', fontWeight: 600 }}> · 🏫 Classroom Linked</span>
+                          ) : (
+                            <span style={{ color: '#a00', opacity: 0.7 }}> · 🏫 No Classroom</span>
+                          )}
                         </small>
                       </div>
                       <button type="button" onClick={() => startEdit(row)} style={smallButton}>Edit</button>
@@ -286,19 +314,27 @@ export default function CoursesCMSPage() {
                     Title *
                     <input value={edit.coursename} onChange={(event) => setEdit({ ...edit, coursename: event.target.value })} style={inputStyle} placeholder="CEO Wealth Management Program" />
                   </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                    <label style={labelStyle}>
-                      Heading / course type
-                      <input value={edit.coursetype} onChange={(event) => setEdit({ ...edit, coursetype: event.target.value })} style={inputStyle} placeholder="Wealth Management" />
-                    </label>
-                    <label style={labelStyle}>
-                      Service / category
-                      <input list="course-category-options" value={edit.category} onChange={(event) => setEdit({ ...edit, category: event.target.value })} style={inputStyle} placeholder="Financial Planning" />
-                    </label>
-                  </div>
+
+                  <label style={labelStyle}>
+                    Category *
+                    <input list="course-category-options" value={edit.category} onChange={(event) => setEdit({ ...edit, category: event.target.value })} style={inputStyle} placeholder="Financial Planning" />
+                  </label>
                   <datalist id="course-category-options">
                     {categories.map((category) => <option key={category} value={category} />)}
                   </datalist>
+
+                  <label style={labelStyle}>
+                    Google Classroom Link or Class ID
+                    <input
+                      value={edit.classroom_course_id}
+                      onChange={(event) => setEdit({ ...edit, classroom_course_id: event.target.value })}
+                      style={inputStyle}
+                      placeholder="https://classroom.google.com/c/731234567890"
+                    />
+                    <span style={{ display: 'block', fontSize: 12, color: '#777', marginTop: 4, fontWeight: 400, lineHeight: 1.4 }}>
+                      Paste the Google Classroom link (or ID). When a student pays for this course, they will automatically be invited to this classroom.
+                    </span>
+                  </label>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <label style={labelStyle}>

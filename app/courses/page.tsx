@@ -33,14 +33,7 @@ function compareCoursePrices(a: CourseItem, b: CourseItem, direction: 'asc' | 'd
   return direction === 'asc' ? a.price - b.price : b.price - a.price;
 }
 
-function inferCategory(value: string) {
-  const text = value.toLowerCase();
-  if (text.includes('financial') || text.includes('planning')) return 'Financial Planning';
-  if (text.includes('wealth') || text.includes('management')) return 'Wealth Management';
-  if (text.includes('family') || text.includes('office')) return 'Family Office';
-  if (text.includes('executive') || text.includes('ceo')) return 'Executive';
-  return 'Other';
-}
+
 
 const catColor: Record<string, string> = {
   'Financial Planning': '#2EC4B6',
@@ -95,7 +88,7 @@ export default function CoursesPage() {
             return {
               courseid: c.courseid as number,
               title: (c.coursename as string) || 'Untitled Course',
-              cat: (c.category as string) || inferCategory((c.coursetype as string) || ''),
+              cat: (c.category as string) || (c.coursetype as string) || 'Other',
               desc: (c.description as string) || 'Professional development course.',
               duration: (c.duration as string) || '10 weeks',
               level: (c.level as string) || 'Professional',
