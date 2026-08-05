@@ -44,12 +44,19 @@ type InstructorOption = {
 function extractClassroomCourseId(input: string): string {
   const trimmed = input.trim();
   if (!trimmed) return '';
-  // Extract ID from full Classroom URLs like https://classroom.google.com/c/731234567890 or https://classroom.google.com/u/0/c/731234567890/details
+  // Extract ID from full Classroom URLs like https://classroom.google.com/c/ODY5MDk0NzIyMTAz or https://classroom.google.com/u/0/c/731234567890/details
   const match = trimmed.match(/classroom\.google\.com\/(?:u\/\d+\/)?c\/([a-zA-Z0-9_-]+)/i);
-  if (match && match[1]) {
-    return match[1];
+  let id = match && match[1] ? match[1] : trimmed;
+  // If base64 encoded digits (e.g. ODY5MDk0NzIyMTAz -> 869094722103), decode it so Google API receives the numeric ID
+  if (/^[a-zA-Z0-9_-]+$/.test(id) && !/^\d+$/.test(id)) {
+    try {
+      const decoded = typeof atob === 'function' ? atob(id) : Buffer.from(id, 'base64').toString('utf-8');
+      if (/^\d+$/.test(decoded)) return decoded;
+    } catch {
+      // Keep as-is if decoding fails
+    }
   }
-  return trimmed;
+  return id;
 }
 
 function blankCourse(): CourseForm {
