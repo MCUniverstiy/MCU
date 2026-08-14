@@ -1,8 +1,11 @@
+import type { ReactNode } from 'react';
+
 interface PageHeroProps {
   title: string;
   subtitle: string;
   description?: string;
   bgImage?: string;
+  children?: ReactNode;
 }
 
 export default function PageHero({
@@ -10,6 +13,7 @@ export default function PageHero({
   subtitle,
   description,
   bgImage = 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1600&q=80',
+  children,
 }: PageHeroProps) {
   return (
     <section style={{ position: 'relative', height: 400, overflow: 'hidden', marginTop: 0 }}>
@@ -60,6 +64,7 @@ export default function PageHero({
             {description}
           </p>
         )}
+        {children && <div style={{ marginTop: 20 }}>{children}</div>}
       </div>
       {/* Teal bottom accent */}
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 4, background: '#2EC4B6', zIndex: 3 }} />

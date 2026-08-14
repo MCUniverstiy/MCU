@@ -6,6 +6,7 @@ import AchievementsSection from '@/components/AchievementsSection';
 import OrgChart from '@/components/OrgChart';
 import ScrollReveal from '@/components/ScrollReveal';
 import SectionHeading from '@/components/SectionHeading';
+import VerifiedBadge from '@/components/VerifiedBadge';
 import { TargetIcon, EyeIcon, LightbulbIcon } from '@/components/Icons';
 
 const values = [
@@ -18,7 +19,7 @@ const team = [
   {
     name: 'Denis Walsh',
     role: 'Founder & CEO of Money Concepts International Inc. and Money Concepts Capital Corp.',
-    img: '/team/denis-walsh.png',
+    img: '/team/denis-walsh.jpg',
   },
   {
     name: 'Barry Dayley',
@@ -38,12 +39,10 @@ const team = [
 ];
 
 const timeline = [
-  { year: '2010', event: 'MCU Institute founded in Wanchai, Hong Kong, with a focus on professional financial planning.' },
-  { year: '2014', event: 'Launched the first CEO Wealth Management Program, attracting senior executives across Asia.' },
-  { year: '2017', event: 'Expanded to include Family Office programs, becoming a pioneer in HK private wealth education.' },
-  { year: '2020', event: 'Introduced hybrid online-classroom learning formats to serve a global student base.' },
-  { year: '2023', event: 'Received 15+ international awards for excellence in financial professional education.' },
-  { year: '2025', event: 'Celebrated 200+ completed courses and 98% student satisfaction, with 45+ certified faculty.' },
+  { year: 'Q1 2025', event: 'MCU Institute established in Wanchai, Hong Kong, with a mission to deliver world-class financial education to professionals and organizations.' },
+  { year: 'Q2 2025', event: 'Launched flagship Wealth Management and Family Office programs, attracting senior executives and advisors across Asia.' },
+  { year: 'Q3 2025', event: 'Introduced corporate training and executive leadership tracks for boards, C-suites, and financial institutions.' },
+  { year: '2025', event: 'Recognized with 15+ international awards, 200+ completed courses, 98% satisfaction, and a faculty of 45+ certified instructors.' },
 ];
 
 export default function AboutPage() {
@@ -53,9 +52,11 @@ export default function AboutPage() {
         <PageHero
           title="About MCU Institute"
           subtitle="Our Story"
-          description="A pioneering institution dedicated to transforming financial education in Hong Kong and beyond since 2010."
+          description="Established in 2025, MCU Institute delivers world-class financial education to professionals, corporations, and institutions across Hong Kong and beyond."
           bgImage="https://images.unsplash.com/photo-1497366216548-37526070297c?w=1600&q=80"
-        />
+        >
+          <VerifiedBadge variant="onDark" label="Verified Institution · Established 2025" />
+        </PageHero>
       </div>
 
       <section style={{ padding: '100px 0', background: '#fff' }}>
@@ -107,7 +108,7 @@ export default function AboutPage() {
                 <span style={{ fontSize: 13, fontWeight: 600, color: '#7B1A2D', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Milestones</span>
                 <div style={{ width: 32, height: 2, background: '#7B1A2D' }} />
               </div>
-              <h2 style={{ fontSize: 38, fontWeight: 700, color: '#1A1A2A', letterSpacing: '-0.02em' }}>Our Journey</h2>
+              <h2 style={{ fontSize: 38, fontWeight: 700, color: '#1A1A2A', letterSpacing: '-0.02em' }}>Our Journey Since 2025</h2>
             </div>
           </ScrollReveal>
           <div style={{ position: 'relative', maxWidth: 720, margin: '0 auto' }}>

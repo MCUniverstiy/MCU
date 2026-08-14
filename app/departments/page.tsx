@@ -11,16 +11,16 @@ const departments = [
     icon: ChartIcon,
     color: '#7B1A2D',
     name: 'Financial Planning',
-    tagline: 'Foundation of Wealth',
-    desc: 'Our flagship department covers personal and corporate financial planning, budgeting, retirement strategy, and risk management. Students gain CFP-aligned competencies and real-world case analysis skills.',
-    courses: ['Personal Financial Planning', 'Corporate Finance', 'Retirement Planning', 'Insurance & Risk Management'],
+    tagline: 'Workforce & Corporate Planning',
+    desc: 'Equip your teams with CFP-aligned competencies across personal and corporate financial planning, budgeting, retirement strategy, and risk management — delivered through case-based programs tailored to your organization.',
+    courses: ['Corporate Financial Planning', 'Retirement & Benefits Strategy', 'Risk Management & Insurance', 'Budgeting & Cash-Flow Discipline'],
   },
   {
     icon: BriefcaseIcon,
     color: '#7B1A2D',
     name: 'Wealth Management',
     tagline: 'Growing & Protecting Assets',
-    desc: 'Focused on high-net-worth client servicing, portfolio construction, alternative investments, and cross-border estate planning. Ideal for banking professionals and private client advisors.',
+    desc: 'Capability-building for banking and advisory teams serving high-net-worth and institutional clients — portfolio construction, alternative investments, and cross-border estate planning benchmarked to institutional standards.',
     courses: ['Portfolio Management', 'Alternative Investments', 'Cross-Border Tax Planning', 'Estate & Succession'],
   },
   {
@@ -28,16 +28,16 @@ const departments = [
     color: '#7B1A2D',
     name: 'Family Office',
     tagline: 'Multi-Generational Wealth',
-    desc: 'Dedicated to the unique needs of family offices — governance structures, family constitution design, philanthropic strategy, and next-generation wealth education.',
-    courses: ['Family Office Governance', 'Philanthropic Planning', 'Next-Gen Wealth', 'Family Constitution Design'],
+    desc: 'Advisory and education for family offices and the professionals who serve them — governance frameworks, family constitution design, philanthropic strategy, and next-generation wealth stewardship.',
+    courses: ['Family Office Governance', 'Philanthropic Strategy', 'Next-Gen Wealth Stewardship', 'Family Constitution Design'],
   },
   {
     icon: LightbulbIcon,
     color: '#7B1A2D',
     name: 'Executive Leadership',
-    tagline: 'For Senior Professionals',
-    desc: 'Short-format executive programs for C-suite leaders — CEO financial literacy, board-level investment governance, and corporate treasury management designed around busy schedules.',
-    courses: ['CEO Financial Literacy', 'Board Governance', 'Corporate Treasury', 'M&A for Executives'],
+    tagline: 'Boards & C-Suites',
+    desc: 'Short-format executive programs for boards and C-suite leaders — CEO financial literacy, board-level investment governance, and corporate treasury management designed around demanding schedules.',
+    courses: ['CEO Financial Literacy', 'Board Investment Governance', 'Corporate Treasury', 'M&A for Executives'],
   },
 ];
 
@@ -47,8 +47,8 @@ export default function DepartmentsPage() {
       <div style={{ paddingTop: 68 }}>
         <PageHero
           title="Our Departments"
-          subtitle="Academic Faculties"
-          description="Four specialized departments covering every dimension of financial education, from personal planning to family office governance."
+          subtitle="Corporate Practice Areas"
+          description="Four specialized practice areas delivering executive education and capability-building programs for corporations, financial institutions, and family offices."
           bgImage="https://mcuinstitute.com/wp-content/uploads/2025/04/pexels-armin-rimoldi-5553065-scaled.jpg"
         />
       </div>
@@ -62,8 +62,8 @@ export default function DepartmentsPage() {
                 <span style={{ fontSize: 13, fontWeight: 600, color: '#7B1A2D', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Explore</span>
                 <div style={{ width: 32, height: 2, background: '#7B1A2D' }} />
               </div>
-              <h2 style={{ fontSize: 38, fontWeight: 700, color: '#1A1A2A', letterSpacing: '-0.02em' }}>Academic Departments</h2>
-              <p style={{ fontSize: 16, color: '#666', marginTop: 16, maxWidth: 560, margin: '16px auto 0' }}>Each department is led by industry practitioners and academics with deep domain expertise.</p>
+              <h2 style={{ fontSize: 38, fontWeight: 700, color: '#1A1A2A', letterSpacing: '-0.02em' }}>Divisions &amp; Practice Areas</h2>
+              <p style={{ fontSize: 16, color: '#666', marginTop: 16, maxWidth: 560, margin: '16px auto 0' }}>Purpose-built programs that develop financial capability across your leadership, advisory, and specialist teams.</p>
             </div>
           </ScrollReveal>
 
@@ -91,7 +91,7 @@ export default function DepartmentsPage() {
                     <h3 style={{ fontSize: 20, fontWeight: 700, color: '#1A1A2A', marginBottom: 12 }}>{dept.name}</h3>
                     <p style={{ fontSize: 14, color: '#666', lineHeight: 1.7, marginBottom: 24 }}>{dept.desc}</p>
                     <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 20 }}>
-                      <p style={{ fontSize: 12, fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Key Courses</p>
+                      <p style={{ fontSize: 12, fontWeight: 600, color: '#999', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Signature Programs</p>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         {dept.courses.map((c, j) => (
                           <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -112,11 +112,11 @@ export default function DepartmentsPage() {
       <section style={{ padding: '80px 0', background: 'linear-gradient(135deg, #7B1A2D, rgba(123,26,45,0.87))', textAlign: 'center' }}>
         <div className="container">
           <ScrollReveal>
-            <h2 style={{ fontSize: 36, fontWeight: 700, color: '#fff', marginBottom: 16 }}>Find Your Department</h2>
+            <h2 style={{ fontSize: 36, fontWeight: 700, color: '#fff', marginBottom: 16 }}>Build Your Organization&apos;s Capability</h2>
             <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.75)', marginBottom: 32, maxWidth: 480, margin: '0 auto 32px' }}>
-              Not sure which department is right for you? Our advisors will help you chart the best learning path.
+              Not sure which division fits your objectives? Our corporate solutions team will design a learning pathway aligned to your organization&apos;s goals and budget.
             </p>
-            <a href="/contact" className="btn-gold">Get in Touch</a>
+            <a href="/contact" className="btn-gold">Book a Consultation</a>
           </ScrollReveal>
         </div>
       </section>

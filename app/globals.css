@@ -501,6 +501,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   .grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
   .grid-2 { grid-template-columns: 1fr !important; }
   .footer-grid { grid-template-columns: 1fr 1fr !important; }
+  .nav-verified { display: none !important; }
 }
 
 @media (max-width: 768px) {
