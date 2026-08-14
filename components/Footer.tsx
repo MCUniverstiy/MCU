@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import Logo from './Logo';
-import VerifiedBadge from './VerifiedBadge';
 import { InstagramIcon, FacebookIcon, LinkedInIcon } from './Icons';
 
 const quickLinks = [
@@ -47,9 +46,6 @@ export default function Footer() {
             }}>
               Nurturing the future of financial planning through comprehensive education and professional development.
             </p>
-            <div style={{ marginTop: 16 }}>
-              <VerifiedBadge variant="onDark" />
-            </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
               {socials.map((s) => (
                 <a

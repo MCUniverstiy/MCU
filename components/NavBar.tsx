@@ -6,7 +6,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import Logo from './Logo';
-import VerifiedBadge from './VerifiedBadge';
 
 const navItems = [
   { label: 'Home', href: '/' },
@@ -147,15 +146,10 @@ export default function NavBar() {
           transition: 'padding 0.3s ease',
         }}
       >
-        {/* Logo + Verified badge */}
-        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Link href="/" style={{ flexShrink: 0 }}>
-            <Logo size={scrolled ? 42 : 50} variant="dark" />
-          </Link>
-          <div className="nav-verified">
-            <VerifiedBadge />
-          </div>
-        </div>
+        {/* Logo */}
+        <Link href="/" style={{ flexShrink: 0 }}>
+          <Logo size={scrolled ? 42 : 50} variant="dark" />
+        </Link>
 
         {/* Desktop Navigation */}
         <div

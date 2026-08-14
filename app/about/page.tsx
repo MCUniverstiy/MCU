@@ -6,7 +6,6 @@ import AchievementsSection from '@/components/AchievementsSection';
 import OrgChart from '@/components/OrgChart';
 import ScrollReveal from '@/components/ScrollReveal';
 import SectionHeading from '@/components/SectionHeading';
-import VerifiedBadge from '@/components/VerifiedBadge';
 import { TargetIcon, EyeIcon, LightbulbIcon } from '@/components/Icons';
 
 const values = [
@@ -54,9 +53,7 @@ export default function AboutPage() {
           subtitle="Our Story"
           description="Established in 2025, MCU Institute delivers world-class financial education to professionals, corporations, and institutions across Hong Kong and beyond."
           bgImage="https://images.unsplash.com/photo-1497366216548-37526070297c?w=1600&q=80"
-        >
-          <VerifiedBadge variant="onDark" label="Verified Institution · Established 2025" />
-        </PageHero>
+        />
       </div>
 
       <section style={{ padding: '100px 0', background: '#fff' }}>
