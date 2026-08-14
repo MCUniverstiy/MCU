@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import SiteLayout from '@/components/SiteLayout';
 import AdminGuard from '@/components/AdminGuard';
+import FormattedDescription from '@/components/FormattedDescription';
 import { createClient } from '@/lib/supabase/client';
 
 type CourseRow = {
@@ -378,8 +379,34 @@ export default function CoursesCMSPage() {
 
                   <label style={labelStyle}>
                     Description
-                    <textarea rows={5} value={edit.description} onChange={(event) => setEdit({ ...edit, description: event.target.value })} style={inputStyle} placeholder="What the course covers and who it is for." />
+                    <textarea
+                      rows={6}
+                      value={edit.description}
+                      onChange={(event) => setEdit({ ...edit, description: event.target.value })}
+                      style={{ ...inputStyle, whiteSpace: 'pre-wrap', resize: 'vertical' }}
+                      placeholder={"course 1: intro to wealth planning\ncourse 2: risk and portfolio construction"}
+                    />
+                    <span style={{ display: 'block', fontSize: 12, color: '#777', marginTop: 4, fontWeight: 400, lineHeight: 1.4 }}>
+                      Press Enter to put the next line underneath. You can also type &lt;br&gt; if you prefer. This is what students will see:
+                    </span>
                   </label>
+                  {edit.description.trim() && (
+                    <div style={{
+                      margin: '-6px 0 16px',
+                      padding: '12px 14px',
+                      background: '#F8F8FA',
+                      border: '1px solid #eee',
+                      borderRadius: 10,
+                    }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#999', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
+                        Preview on /courses
+                      </div>
+                      <FormattedDescription
+                        text={edit.description}
+                        style={{ fontSize: 14, color: '#666', lineHeight: 1.6 }}
+                      />
+                    </div>
+                  )}
 
                   <label style={labelStyle}>
                     Course photo

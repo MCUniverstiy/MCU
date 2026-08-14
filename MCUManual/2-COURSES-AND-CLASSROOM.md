@@ -30,7 +30,7 @@ When a course is linked to a Google Classroom, paying students automatically rec
 | **Level** | Experience level (e.g., `Foundation`, `Professional`, `Executive`). |
 | **Format** | Learning mode (e.g., `Hybrid`, `Online`, `In-Person`). |
 | **Instructor** | Select the instructor teaching this course from the dropdown. *(Instructors are created under Content Manager → Instructors)*. |
-| **Description** | Summary covering course objectives, curriculum highlights, and who should attend. |
+| **Description** | Summary covering course objectives, curriculum highlights, and who should attend. Press **Enter** to start a new line (or type `<br>`). Enter twice for a blank line. A live preview appears under the box. |
 | **Course Photo** | Upload a high-resolution cover photo for the course card. |
 
 5. Click **Save course**.
