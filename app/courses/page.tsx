@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import SiteLayout from '@/components/SiteLayout';
 import PageHero from '@/components/PageHero';
 import ScrollReveal from '@/components/ScrollReveal';
+import FormattedDescription from '@/components/FormattedDescription';
 import { createClient } from '@/lib/supabase/client';
 
 interface CourseItem {
@@ -372,7 +373,10 @@ export default function CoursesPage() {
                     </div>
                     <div style={{ padding: '24px 28px 28px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                       <h3 style={{ fontSize: 18, fontWeight: 600, color: '#1A1A2A', lineHeight: 1.4, marginBottom: 10 }}>{course.title}</h3>
-                      <p style={{ fontSize: 14, color: '#666', lineHeight: 1.6, flex: 1 }}>{course.desc}</p>
+                      <FormattedDescription
+                        text={course.desc}
+                        style={{ fontSize: 14, color: '#666', lineHeight: 1.6, flex: 1 }}
+                      />
                       
                       {course.instructorName && (
                         <div style={{ fontSize: 12, color: '#7B1A2D', fontWeight: 600, marginTop: 8 }}>
