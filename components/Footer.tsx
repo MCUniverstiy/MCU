@@ -115,7 +115,7 @@ export default function Footer() {
           flexWrap: 'wrap', gap: 12,
         }}>
           <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>
-            &copy; 2026 MCU Institute Limited. All rights reserved.
+            &copy; 2026 MCU Institute Limited. Established 2025. All rights reserved.
           </span>
           <div style={{ display: 'flex', gap: 20 }}>
             {['Privacy Policy', 'Terms of Service'].map((l) => (
